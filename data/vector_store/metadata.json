@@ -1,0 +1,296 @@
+[
+  {
+    "text": "Technical & Professional Skills:\nCSS, FastAPI, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "skills",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 0
+  },
+  {
+    "text": "Projects & Portfolio:\nEDUCATIONPROFILE\n2nd-year CSE student at Thakur Shyamnarayan Engineering College,\nMumbai aspiring to become an AIML engineer. Passionate about\nexperimenting with AI/ML tools, rapid prototyping, and converting ideas\ninto working projects.\nPersonal Portfolio Website\nCar Price Prediction (Machine Learning Project)\nHintify - AI Coding Mentor (In-progress)",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 1
+  },
+  {
+    "text": "Hintify - AI Coding Mentor (In-progress)\nBuilt a interactive personal portfolio showcasing skills and projects\nImplemented neon aesthetics, and smooth UI transitions for better UX\nIntegrated for a modern and visually appealing interface\nDeployed for cross-device responsiveness\nTech: HTML, CSS, JavaScript, Three.js Built an ML regression model to estimate used car prices",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 2
+  },
+  {
+    "text": "Performed preprocessing & feature encoding\nTools: Python, Pandas, NumPy, Scikit-Learn\nAI tool that gives hints instead of full code to improve problem-solving\nskills.\nSupports multi-level hints (concept, logic, error direction) for learning.\nBackend built with FastAPI + prompt control to prevent code output.\nDesigned to reduce AI dependency & cheating in coding education.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 3
+  },
+  {
+    "text": "Designed to reduce AI dependency & cheating in coding education.\nBachelor of Engineering (B.E.) - CSE-AIML\nUniversity of Mumbai (MU) - 2024-2028 (Currently Pursuing)\nCompetitive Exams\nJEE Mains - 90.81 Percentile | MHT-CET - 84 Percentile\nSSC (2022): 93.40% I HSC(2024):75.00%First Year SGPA: 8.46Community Service Oriented\nAnalytical Thinking\nLeadership & Coordination\nFast Learner",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 4
+  },
+  {
+    "text": "Skills: CSS, FastAPI, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "overview",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 5
+  },
+  {
+    "text": "Technical & Professional Skills:\nC, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "skills",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 0
+  },
+  {
+    "text": "Projects & Portfolio:\nEDUCATIONPROFILE\nI am a second-year Computer Science Engineering (CSE - AIML Specialization)\nstudent at Thakur Shyamnarayan Engineering College, Mumbai, with a strong\ninterest in Artificial Intelligence and Machine Learning.. I have worked on\nprojects involving AI-based automation, machine learning models, and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 1
+  },
+  {
+    "text": "projects involving AI-based automation, machine learning models, and\nintelligent systems, which helped me understand how AI can solve real-world\nproblems. I am currently focused on improving my AI/ML, data analysis, and\nproblem-solving skills while actively participating in hackathons and hands-on\nprojects.\nAI Kirana Store Inventory Management System",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 2
+  },
+  {
+    "text": "projects.\nAI Kirana Store Inventory Management System\nCar Price Prediction (Machine Learning Project)\nAI HR Manager - Intelligent Recruitment Automation System\nBuilt an AI-powered system that analyzes store inventory data and\npredicts product demand to generate automated restocking alerts,\nhelping small retail stores optimize stock management using Python and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 3
+  },
+  {
+    "text": "helping small retail stores optimize stock management using Python and\ndata analytics.Built an ML regression model to estimate used car prices\nPerformed preprocessing & feature encoding\nDeveloped an AI-based HR assistant that helps companies automate the\nhiring process. The system can screen resumes, detect possible fraud in",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 4
+  },
+  {
+    "text": "hiring process. The system can screen resumes, detect possible fraud in\ncandidate information, rank applicants based on their skills, and conduct\nAI-based interviews through text and voice. It analyzes candidate\nresponses using natural language processing and machine learning to\nhelp HR teams identify the most suitable candidates and make faster,\nmore informed hiring decisions.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 5
+  },
+  {
+    "text": "more informed hiring decisions.\nBachelor of Engineering (B.E.) - CSE-AIML\nUniversity of Mumbai (MU) - 2024-2028 (Currently Pursuing)\nCompetitive Exams\nJEE Mains - 90.81 Percentile | MHT-CET - 84 Percentile\nSSC (2022): 93.40% I HSC(2024):75.00%First Year SGPA: 8.46\nCommunity Service Oriented\nAnalytical Thinking\nLeadership & Coordination\nFast LearnerAutism Spectrum Detection using Machine Learning",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 6
+  },
+  {
+    "text": "Fast LearnerAutism Spectrum Detection using Machine Learning\nDeveloped a machine learning model to assist in the early detection of\nAutism Spectrum Disorder (ASD) by analyzing behavioral and screening\ndata. The system processes input features, applies predictive algorithms,\nand classifies the likelihood of ASD, helping support early identification\nand awareness.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 7
+  },
+  {
+    "text": "Skills: C, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "overview",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 8
+  },
+  {
+    "text": "Technical & Professional Skills:\nC, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "skills",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 0
+  },
+  {
+    "text": "Projects & Portfolio:\nEDUCATIONPROFILE\nI am a second-year Computer Science Engineering (CSE - AIML Specialization)\nstudent at Thakur Shyamnarayan Engineering College, Mumbai, with a strong\ninterest in Artificial Intelligence and Machine Learning.. I have worked on\nprojects involving AI-based automation, machine learning models, and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 1
+  },
+  {
+    "text": "projects involving AI-based automation, machine learning models, and\nintelligent systems, which helped me understand how AI can solve real-world\nproblems. I am currently focused on improving my AI/ML, data analysis, and\nproblem-solving skills while actively participating in hackathons and hands-on\nprojects.\nAI Kirana Store Inventory Management System",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 2
+  },
+  {
+    "text": "projects.\nAI Kirana Store Inventory Management System\nCar Price Prediction (Machine Learning Project)\nAI HR Manager - Intelligent Recruitment Automation System\nBuilt an AI-powered system that analyzes store inventory data and\npredicts product demand to generate automated restocking alerts,\nhelping small retail stores optimize stock management using Python and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 3
+  },
+  {
+    "text": "helping small retail stores optimize stock management using Python and\ndata analytics.Built an ML regression model to estimate used car prices\nPerformed preprocessing & feature encoding\nDeveloped an AI-based HR assistant that helps companies automate the\nhiring process. The system can screen resumes, detect possible fraud in",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 4
+  },
+  {
+    "text": "hiring process. The system can screen resumes, detect possible fraud in\ncandidate information, rank applicants based on their skills, and conduct\nAI-based interviews through text and voice. It analyzes candidate\nresponses using natural language processing and machine learning to\nhelp HR teams identify the most suitable candidates and make faster,\nmore informed hiring decisions.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 5
+  },
+  {
+    "text": "more informed hiring decisions.\nBachelor of Engineering (B.E.) - CSE-AIML\nUniversity of Mumbai (MU) - 2024-2028 (Currently Pursuing)\nCompetitive Exams\nJEE Mains - 90.81 Percentile | MHT-CET - 84 Percentile\nSSC (2022): 93.40% I HSC(2024):75.00%First Year SGPA: 8.46\nCommunity Service Oriented\nAnalytical Thinking\nLeadership & Coordination\nFast LearnerAutism Spectrum Detection using Machine Learning",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 6
+  },
+  {
+    "text": "Fast LearnerAutism Spectrum Detection using Machine Learning\nDeveloped a machine learning model to assist in the early detection of\nAutism Spectrum Disorder (ASD) by analyzing behavioral and screening\ndata. The system processes input features, applies predictive algorithms,\nand classifies the likelihood of ASD, helping support early identification\nand awareness.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 7
+  },
+  {
+    "text": "Skills: C, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "overview",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 8
+  },
+  {
+    "text": "Technical & Professional Skills:\nC, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "skills",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 0
+  },
+  {
+    "text": "Projects & Portfolio:\nEDUCATIONPROFILE\nI am a second-year Computer Science Engineering (CSE - AIML Specialization)\nstudent at Thakur Shyamnarayan Engineering College, Mumbai, with a strong\ninterest in Artificial Intelligence and Machine Learning.. I have worked on\nprojects involving AI-based automation, machine learning models, and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 1
+  },
+  {
+    "text": "projects involving AI-based automation, machine learning models, and\nintelligent systems, which helped me understand how AI can solve real-world\nproblems. I am currently focused on improving my AI/ML, data analysis, and\nproblem-solving skills while actively participating in hackathons and hands-on\nprojects.\nAI Kirana Store Inventory Management System",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 2
+  },
+  {
+    "text": "projects.\nAI Kirana Store Inventory Management System\nCar Price Prediction (Machine Learning Project)\nAI HR Manager - Intelligent Recruitment Automation System\nBuilt an AI-powered system that analyzes store inventory data and\npredicts product demand to generate automated restocking alerts,\nhelping small retail stores optimize stock management using Python and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 3
+  },
+  {
+    "text": "helping small retail stores optimize stock management using Python and\ndata analytics.Built an ML regression model to estimate used car prices\nPerformed preprocessing & feature encoding\nDeveloped an AI-based HR assistant that helps companies automate the\nhiring process. The system can screen resumes, detect possible fraud in",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 4
+  },
+  {
+    "text": "hiring process. The system can screen resumes, detect possible fraud in\ncandidate information, rank applicants based on their skills, and conduct\nAI-based interviews through text and voice. It analyzes candidate\nresponses using natural language processing and machine learning to\nhelp HR teams identify the most suitable candidates and make faster,\nmore informed hiring decisions.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 5
+  },
+  {
+    "text": "more informed hiring decisions.\nBachelor of Engineering (B.E.) - CSE-AIML\nUniversity of Mumbai (MU) - 2024-2028 (Currently Pursuing)\nCompetitive Exams\nJEE Mains - 90.81 Percentile | MHT-CET - 84 Percentile\nSSC (2022): 93.40% I HSC(2024):75.00%First Year SGPA: 8.46\nCommunity Service Oriented\nAnalytical Thinking\nLeadership & Coordination\nFast LearnerAutism Spectrum Detection using Machine Learning",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 6
+  },
+  {
+    "text": "Fast LearnerAutism Spectrum Detection using Machine Learning\nDeveloped a machine learning model to assist in the early detection of\nAutism Spectrum Disorder (ASD) by analyzing behavioral and screening\ndata. The system processes input features, applies predictive algorithms,\nand classifies the likelihood of ASD, helping support early identification\nand awareness.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 7
+  },
+  {
+    "text": "Skills: C, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "overview",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 8
+  },
+  {
+    "text": "Technical & Professional Skills:\nC, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "skills",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 0
+  },
+  {
+    "text": "Projects & Portfolio:\nEDUCATIONPROFILE\nI am a second-year Computer Science Engineering (CSE - AIML Specialization)\nstudent at Thakur Shyamnarayan Engineering College, Mumbai, with a strong\ninterest in Artificial Intelligence and Machine Learning.. I have worked on\nprojects involving AI-based automation, machine learning models, and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 1
+  },
+  {
+    "text": "projects involving AI-based automation, machine learning models, and\nintelligent systems, which helped me understand how AI can solve real-world\nproblems. I am currently focused on improving my AI/ML, data analysis, and\nproblem-solving skills while actively participating in hackathons and hands-on\nprojects.\nAI Kirana Store Inventory Management System",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 2
+  },
+  {
+    "text": "projects.\nAI Kirana Store Inventory Management System\nCar Price Prediction (Machine Learning Project)\nAI HR Manager - Intelligent Recruitment Automation System\nBuilt an AI-powered system that analyzes store inventory data and\npredicts product demand to generate automated restocking alerts,\nhelping small retail stores optimize stock management using Python and",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 3
+  },
+  {
+    "text": "helping small retail stores optimize stock management using Python and\ndata analytics.Built an ML regression model to estimate used car prices\nPerformed preprocessing & feature encoding\nDeveloped an AI-based HR assistant that helps companies automate the\nhiring process. The system can screen resumes, detect possible fraud in",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 4
+  },
+  {
+    "text": "hiring process. The system can screen resumes, detect possible fraud in\ncandidate information, rank applicants based on their skills, and conduct\nAI-based interviews through text and voice. It analyzes candidate\nresponses using natural language processing and machine learning to\nhelp HR teams identify the most suitable candidates and make faster,\nmore informed hiring decisions.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 5
+  },
+  {
+    "text": "more informed hiring decisions.\nBachelor of Engineering (B.E.) - CSE-AIML\nUniversity of Mumbai (MU) - 2024-2028 (Currently Pursuing)\nCompetitive Exams\nJEE Mains - 90.81 Percentile | MHT-CET - 84 Percentile\nSSC (2022): 93.40% I HSC(2024):75.00%First Year SGPA: 8.46\nCommunity Service Oriented\nAnalytical Thinking\nLeadership & Coordination\nFast LearnerAutism Spectrum Detection using Machine Learning",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 6
+  },
+  {
+    "text": "Fast LearnerAutism Spectrum Detection using Machine Learning\nDeveloped a machine learning model to assist in the early detection of\nAutism Spectrum Disorder (ASD) by analyzing behavioral and screening\ndata. The system processes input features, applies predictive algorithms,\nand classifies the likelihood of ASD, helping support early identification\nand awareness.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 7
+  },
+  {
+    "text": "Skills: C, C++, CSS, HTML, Java, JavaScript, Leadership, Lua, Machine Learning, Matplotlib, Natural Language Processing, NLP, NumPy, Pandas, Python, Scikit-Learn, Seaborn",
+    "section": "overview",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 8
+  }
+]

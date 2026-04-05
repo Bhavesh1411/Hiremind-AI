@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment Variables (NEVER commit this)
+.env
+.env.local
+.env.*.local
+
+# Vector Store (large binary files)
+data/vector_store/faiss.index
+data/vector_store/metadata.pkl
+
+# Raw Resumes (personal data)
+data/resumes/raw/
+data/resumes/processed/
+
+# VS Code
+.vscode/
+
+# Temp files
+*.log
+test_check.py
+verify_fix.py
