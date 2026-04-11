@@ -418,21 +418,36 @@ def process_embeddings(
         result["metadata"] = chunks
         result["total_vectors"] = index.ntotal
 
-        # Step 5 — Persist to disk
+        # Step 5 — Persist to disk (Unique by Candidate Name)
         if persist:
-            # If an index already exists, load it and merge
+            # If an index already exists, load and filter
             if INDEX_PATH.exists() and METADATA_PATH.exists():
-                existing_index, existing_meta = load_vector_store()
-                # Merge: add new vectors to existing index
-                existing_index.add(embeddings)
-                merged_meta = existing_meta + chunks
-                storage_info = save_vector_store(existing_index, merged_meta)
-                result["total_vectors"] = existing_index.ntotal
+                _, existing_meta = load_vector_store()
+                
+                # Deduplicate: Remove any existing chunks for this specific candidate name
+                new_candidate_name = structured_json.get("name", "Unknown Candidate")
+                filtered_meta = [
+                    m for m in existing_meta if m.get("name") != new_candidate_name
+                ]
+                
+                # Combine with new chunks
+                merged_meta = filtered_meta + chunks
+                
+                # Rebuild index from all text in merged metadata (to keep it consistent)
+                # Note: For production with millions of rows, we'd use better deletion,
+                # but for this HR OS, rebuilding IndexFlatIP is instantaneous and robust.
+                merged_embeddings = generate_embeddings(merged_meta)
+                index = create_faiss_index(merged_embeddings)
+                
+                storage_info = save_vector_store(index, merged_meta)
+                result["total_vectors"] = index.ntotal
                 result["metadata"] = merged_meta
-                result["index"] = existing_index
-                logger.info("Merged into existing index. Total: %d vectors.", existing_index.ntotal)
+                result["index"] = index
+                logger.info("Updated index. Candidate '%s' data replaced. Total: %d vectors.", 
+                            new_candidate_name, index.ntotal)
             else:
                 storage_info = save_vector_store(index, chunks)
+                result["storage"] = storage_info
 
             result["storage"] = storage_info
 

@@ -23,3 +23,16 @@ data/resumes/processed/
 *.log
 test_check.py
 verify_fix.py
+
+# Python Environment
+venv/
+.venv/
+
+# Local Storage (Personal Data & DBs)
+data/*.db
+data/resumes/raw/
+data/resumes/processed/
+data/vector_store/
+
+# Scratchpad
+scratch/

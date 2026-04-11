@@ -232,9 +232,10 @@ EMAIL_PATTERN = re.compile(
     r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", re.IGNORECASE
 )
 
-# More tolerant phone pattern (finds 10 digits even if stuck to text)
+# Robust phone pattern: handles +91, spaces, hyphens, and parentheses
 PHONE_PATTERN = re.compile(
-    r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b\d{10}\b|(?:\+?\d{1,3}[\s\-.]?)?\(?\d{2,4}\)?[\s\-.]?\d{3,5}[\s\-.]?\d{3,5}"
+    r"(?:\+?\d{1,3}[\s\-.]?)?\(?\d{2,4}\)?[\s\-.]?\d{3,5}[\s\-.]?\d{3,5}|\b\d{10}\b",
+    re.IGNORECASE
 )
 
 LOCATION_INDICATORS = re.compile(
@@ -245,38 +246,65 @@ LOCATION_INDICATORS = re.compile(
 def preprocess_entities_text(text: str) -> str:
     """
     Cleans up common PDF extraction artifacts that break entity extraction.
-    - Joins split emails (e.g., 'user@g' \n 'mail.com').
-    - Fixes joined-text headers (e.g., 'SKILLS7756828367' -> 'SKILLS 7756828367').
+    1. Joins split emails.
+    2. Fixes joined-text headers.
+    3. Stitches fragmented words (e.g., 'B h a v e s h' -> 'Bhavesh').
     """
     if not text:
         return ""
     
-    # 1. Stitch split emails (look for @ preceded/followed by newline)
-    # e.g. "bhaveshchaudhary2506@g\nmail.com" -> "bhaveshchaudhary2506@gmail.com"
+    # 1. Fix fragmented words (e.g. "B h a v e s h   P a t e l")
+    # MUST DO THIS BEFORE collapsing spaces, so we can detect word boundaries
+    def _merge_spaces(match):
+        matched = match.group(0)
+        # Avoid joining things that look like numbers or special list markers
+        if re.search(r"\d", matched):
+            return matched
+        return matched.replace(" ", "")
+
+    # Look for 3+ single characters separated by spaces
+    text = re.sub(r"\b[A-Za-z](?:\s[A-Za-z]){2,}\b", _merge_spaces, text)
+
+    # 2. Collapse multiple spaces and tabs into single spaces
+    text = re.sub(r"[ \t]+", " ", text)
+    
+    # 3. Stitch split emails (look for @ preceded/followed by newline)
     text = re.sub(r"([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+)\s*\n\s*([a-zA-Z]{2,})", r"\1\2", text)
     
-    # 2. Add space between words and numbers (common in headers)
-    # e.g. "SKILLS7756" -> "SKILLS 7756"
+    # 4. Add space between words and numbers (common in headers)
     text = re.sub(r"([a-zA-Z]+)(\d{7,})", r"\1 \2", text)
-    
-    return text
 
-def extract_entities(text: str) -> dict:
+    # 5. Fix "sticky" words like "example.comPhone" or "email@domain.comLocation"
+    # Adds a space when a lowercase TLD is immediately followed by a Capitalized word
+    text = re.sub(r"(\.[a-z]{2,})([A-Z][a-z]+)", r"\1 \2", text)
+    
+    # 6. Fix common encoding artifacts/junk characters often found in modern PDFs
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]", "", text)
+    
+    return text.strip()
+
+def extract_entities(text: str, full_text: str = None) -> dict:
     """
     Extracts personal identification entities from resume text.
 
     Uses:
         - spaCy NER for name (PERSON) and location (GPE/LOC).
-        - Regex for email and phone.
+        - Regex for email and phone (Global search across full_text if provided).
 
     Args:
-        text: Full resume text (or the 'header' section for better accuracy).
+        text: The 'top portion' or 'header' of the resume (best for name/location).
+        full_text: The complete resume text (best for email/phone which can be anywhere).
 
     Returns:
         dict with keys: name, email, phone, location.
     """
-    # Pre-process to fix fragmented text
+    # If full_text not provided, use the provided text as the full corpus
+    if not full_text:
+        full_text = text
+
+    # Pre-process both to fix fragmented text
     text = preprocess_entities_text(text)
+    full_text = preprocess_entities_text(full_text)
 
     nlp = _get_nlp()
     result = {
@@ -286,26 +314,40 @@ def extract_entities(text: str) -> dict:
         "location": None,
     }
 
-    # ------- Email (regex) -------
-    email_match = EMAIL_PATTERN.search(text)
+    # ------- Email (Global Search) -------
+    email_match = EMAIL_PATTERN.search(full_text)
     if email_match:
         result["email"] = email_match.group().strip()
 
-    # ------- Phone (regex) -------
-    # First look for standard formats, then any 10-digit sequence
-    phone_match = PHONE_PATTERN.search(text)
+    # ------- Phone (Global Search + Normalization) -------
+    phone_match = PHONE_PATTERN.search(full_text)
+    raw_phone = None
     if phone_match:
-        result["phone"] = phone_match.group().strip()
+        raw_phone = phone_match.group().strip()
     else:
-        # Fallback: Find any 10-digit number
-        digits_only_match = re.search(r"\b\d{10,12}\b", re.sub(r"\D", "", text))
-        if digits_only_match:
-            result["phone"] = digits_only_match.group()
+        # Fallback: Find any 10-digit number anywhere in text
+        fo_match = re.search(r"\b\d{10,12}\b", re.sub(r"[^\d\s]", " ", full_text))
+        if fo_match:
+            raw_phone = fo_match.group()
+
+    if raw_phone:
+        # Normalize: keep only digits and leading +
+        clean_phone = re.sub(r"[^\d+]", "", raw_phone)
+        
+        # Consistent normalization:
+        # 1. If 10 digits and no + prefix, assume India (+91)
+        if len(clean_phone) == 10 and not clean_phone.startswith("+"):
+            clean_phone = "+91" + clean_phone
+        # 2. If 12 digits starting with 91, add +
+        elif len(clean_phone) == 12 and clean_phone.startswith("91"):
+            clean_phone = "+" + clean_phone
+        
+        result["phone"] = clean_phone
 
     # ------- Name & Location (spaCy NER) -------
-    # Process a larger chunk (first 1500) because names in multi-column PDFs 
-    # can get pushed down far in the text extraction order.
-    header_doc = nlp(text[:1500])
+    # Process the top portion (first 3000 chars) as names/location are almost always there.
+    # Expanded from 1500 to handle modern resumes with heavy sidebars or preambles.
+    header_doc = nlp(text[:3000])
 
     persons = []
     locations = []
@@ -314,19 +356,21 @@ def extract_entities(text: str) -> dict:
         if ent.label_ == "PERSON":
             # Filter out short fragments or section labels
             val = ent.text.strip()
-            if len(val.split()) >= 2 and not any(h.lower() in val.lower() for h in SECTION_HEADINGS):
-                persons.append(val)
+            # Must have at least 2 words and not be a common header word
+            words = val.split()
+            if len(words) >= 2 and len(val) < 40:
+                is_noise = any(h.lower() in val.lower() for h in SECTION_HEADINGS)
+                if not is_noise:
+                    persons.append(val)
         elif ent.label_ in ("GPE", "LOC"):
             locations.append(ent.text.strip())
 
-    # Name: Take the first PERSON entity
     if persons:
+        # Choose the first PERSON entity found in the top portion
         result["name"] = persons[0]
     else:
-        # Fallback: Look for Uppercase segments in the first 1500 chars 
-        # Restriction: Only match on a single line to avoid joining separate headers
-        # (e.g. avoid joining "CONTACT" and "SKILLS")
-        potential_names = re.findall(r"\b[A-Z]{2,}(?: [A-Z]{2,})+\b", text[:1500])
+        # Fallback: Look for Uppercase segments in the first 3000 chars 
+        potential_names = re.findall(r"\b[A-Z]{2,}(?: [A-Z]{2,})+\b", text[:3000])
         
         # Flatten all heading patterns into a single set for fast lookup
         all_heading_words = set()
@@ -352,12 +396,12 @@ def extract_entities(text: str) -> dict:
                 result["name"] = p_name.title()
                 break
 
-    # Location: spaCy GPE or regex fallback
+    # Location: spaCy GPE or regex fallback (search top portion)
     if locations:
         result["location"] = locations[0]
     else:
-        # Search deeper for location indicators (up to 1500)
-        loc_match = LOCATION_INDICATORS.search(text[:1500])
+        # Search deeper for location indicators (up to 3000)
+        loc_match = LOCATION_INDICATORS.search(text[:3000])
         if loc_match:
             result["location"] = loc_match.group(1).strip()
 
@@ -376,48 +420,38 @@ def extract_entities(text: str) -> dict:
 
 def extract_skills(text: str) -> list:
     """
-    Extracts technical and professional skills from resume text.
-
-    Strategy (layered):
-        1. Taxonomy Match: Scan text against the 200+ skills taxonomy.
-        2. spaCy NER Supplement: Pick up ORG/PRODUCT entities that look
-           like tool/technology names.
-        3. Deduplicate and return canonical casing from taxonomy.
-
-    Args:
-        text: Full resume text.
-
-    Returns:
-        Sorted list of unique skills (canonical casing).
+    Extracts technical and professional skills ONLY from the provided text block.
+    No semantic inference or AI generation.
     """
+    if not text:
+        return []
+
     found_skills = set()
-    text_lower = text.lower()
-
-    # --- Layer 1: Taxonomy keyword matching ---
-    for skill_lower, skill_canonical in _SKILLS_LOWER.items():
-        # Use word-boundary matching to avoid partial hits
-        # e.g. "R" should not match every word containing 'r'
-        if len(skill_lower) <= 2:
-            # For very short skill names (R, C, Go), require word boundaries
-            pattern = r"\b" + re.escape(skill_lower) + r"\b"
-            if re.search(pattern, text_lower):
-                found_skills.add(skill_canonical)
-        else:
-            if skill_lower in text_lower:
-                found_skills.add(skill_canonical)
-
-    # --- Layer 2: spaCy NER supplement ---
-    nlp = _get_nlp()
-    doc = nlp(text[:5000])  # limit to first 5000 chars for performance
-
-    for ent in doc.ents:
-        if ent.label_ in ("ORG", "PRODUCT"):
-            ent_lower = ent.text.strip().lower()
-            if ent_lower in _SKILLS_LOWER:
-                found_skills.add(_SKILLS_LOWER[ent_lower])
+    
+    # 1. Split by common delimiters (commas, bullets, pipes, newlines)
+    # This ensures we process multi-word skills correctly within lists
+    tokens = re.split(r"[,•|\n\t\-]+", text)
+    
+    for token in tokens:
+        clean_token = token.strip().lower()
+        if not clean_token:
+            continue
+            
+        # Match cleaned token against taxonomy
+        # We check if the token is a known skill OR contains a known skill
+        for skill_lower, skill_canonical in _SKILLS_LOWER.items():
+            # Use word boundaries for short skills (C, R, etc)
+            if len(skill_lower) <= 2:
+                pattern = r"\b" + re.escape(skill_lower) + r"\b"
+                if re.search(pattern, clean_token):
+                    found_skills.add(skill_canonical)
+            else:
+                # Direct match for longer skills
+                if skill_lower in clean_token:
+                    found_skills.add(skill_canonical)
 
     skills_list = sorted(found_skills, key=str.lower)
-    logger.info("Extracted %d unique skills.", len(skills_list))
+    logger.info("Extracted %d unique skills from strict source.", len(skills_list))
     return skills_list
 
 
@@ -493,7 +527,7 @@ def clean_text_advanced(text: str) -> str:
 #  5. build_structured_json(text) — Main Orchestrator
 # ══════════════════════════════════════════════════════════════════════════════
 
-def build_structured_json(text: str) -> dict:
+def build_structured_json(text: str, profile_photo: str = None) -> dict:
     """
     Master function that orchestrates the full text processing pipeline:
         1. Advanced cleaning
@@ -504,6 +538,7 @@ def build_structured_json(text: str) -> dict:
 
     Args:
         text: Cleaned resume text (output of data_ingestion module).
+        profile_photo: Base64 encoded profile photo extracted from the file.
 
     Returns:
         Structured dict with all parsed resume fields.
@@ -517,13 +552,14 @@ def build_structured_json(text: str) -> dict:
     sections = segment_sections(cleaned)
 
     # Step 3: Extract personal entities
-    # Prefer the header block if it exists, otherwise use full text
-    entity_source = sections.get("header", cleaned[:1500])
-    entities = extract_entities(entity_source)
+    # Prefer the header block as the primary 'text' (best for name/location), 
+    # but provide the 'cleaned' as full_text for global email/phone search.
+    entity_source = sections.get("header", cleaned[:3000])
+    entities = extract_entities(entity_source, full_text=cleaned)
 
-    # Step 4: Extract skills
-    # Prefer the skills section if found, but also scan full text
-    skills_source = sections.get("skills", "") + "\n" + cleaned
+    # Step 4: Extract skills (STRICT: ONLY from skills section)
+    # Remove semantic supplement and restrict source
+    skills_source = sections.get("skills", "")
     skills = extract_skills(skills_source)
 
     # Step 5: Assemble final structure
@@ -541,6 +577,7 @@ def build_structured_json(text: str) -> dict:
         "achievements":   sections.get("achievements", ""),
         "languages":      sections.get("languages", ""),
         "raw_sections":   list(sections.keys()),
+        "profile_photo": profile_photo,
     }
 
     logger.info(

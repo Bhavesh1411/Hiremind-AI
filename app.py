@@ -1,6 +1,9 @@
 import os
+import re
+import io
 import json
 import streamlit as st
+from PIL import Image, ImageFilter
 from dotenv import load_dotenv
 from modules.data_ingestion import process_resume
 from modules.text_processing import build_structured_json
@@ -10,11 +13,23 @@ from modules.llm_analysis import generate_analysis_report, PROVIDER_GEMINI
 from modules.ats_scorer import run_ats_analysis
 from modules.fraud_detector import generate_fraud_report
 from modules.recommendation_engine import build_recommendation_output
+from modules.candidate_db import store_candidate_data, init_db
+from modules.identity_verification import (
+    verify_name, verify_email, verify_phone, verify_identity,
+    generate_otp, verify_otp_logic
+)
+from modules.email_service import send_otp_email
+from modules.interview_ui import render_mode_selection, render_interview_ui
+from modules.voice_ui import render_voice_interview, render_combined_report
+from modules.auth_db import init_auth_db
+from modules.auth_ui import render_role_selection, render_login_page, render_candidate_dashboard, render_admin_dashboard
+import time
 
 # Load environment variables from .env file
 load_dotenv()
 _GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 _OPENAI_API_KEY  = os.getenv("OPENAI_API_KEY", "")
+_ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY", "")
 _LLM_PROVIDER    = os.getenv("LLM_PROVIDER", PROVIDER_GEMINI)
 
 # --- PAGE CONFIG ---
@@ -183,7 +198,10 @@ def display_input_workspace():
                     # --- Text Processing: Parse into structured JSON ---
                     if result.get("status") == "success":
                         with st.spinner("🧠 Parsing resume with NLP..."):
-                            parsed = build_structured_json(result["cleaned_text"])
+                            parsed = build_structured_json(
+                                result["cleaned_text"], 
+                                profile_photo=result.get("profile_photo")
+                            )
                         st.session_state["parsed_resume"] = parsed
 
                         # --- Embeddings: Generate & store vectors ---
@@ -206,43 +224,69 @@ def display_input_workspace():
                 else:
                     st.warning(result.get("message", "Processing failed."))
 
-        # --- Parsed Resume Display ---
+        # --- Parsed Resume Display (STRUCTURED) ---
         parsed = st.session_state.get("parsed_resume")
         if parsed:
-            with st.expander("🧩 Parsed Resume Data (NLP Output)", expanded=True):
-                # Entity cards row
-                e1, e2, e3, e4 = st.columns(4)
-                e1.metric("👤 Name",     parsed.get("name") or "—")
-                e2.metric("📧 Email",    parsed.get("email") or "—")
-                e3.metric("📞 Phone",    parsed.get("phone") or "—")
-                e4.metric("📍 Location", parsed.get("location") or "—")
+            with st.expander("🧩 Candidate Professional Profile", expanded=True):
+                # ── Header: Identity & Contact ──
+                st.markdown("#### 👤 Primary Identification")
+                c1, c2, c3 = st.columns([2, 2, 2])
+                with c1:
+                    st.markdown(f"**Name**  \n{parsed.get('name') or '—'}")
+                with c2:
+                    st.markdown(f"**Email**  \n{parsed.get('email') or '—'}")
+                with c3:
+                    st.markdown(f"**Phone**  \n{parsed.get('phone') or '—'}")
+                
+                st.markdown(f"**📍 Location:** {parsed.get('location') or 'Not specified'}")
+                st.markdown("<br>", unsafe_allow_html=True)
 
-                st.markdown("---")
+                # ── Summary / Objective ──
+                summary = parsed.get("summary")
+                if summary:
+                    with st.container(border=True):
+                        st.markdown("**📝 Professional Summary**")
+                        st.write(summary)
+                    st.markdown("<br>", unsafe_allow_html=True)
 
-                # Skills display
+                # ── Core Skills ──
                 skills = parsed.get("skills", [])
                 if skills:
-                    st.markdown(f"**🛠 Extracted Skills ({len(skills)}):**")
-                    tags_html = " ".join(
+                    st.markdown(f"#### 🛠 Skills & Expertise ({len(skills)})")
+                    tags_html = "".join(
                         f'<span class="tag tag-match">{s}</span>' for s in skills
                     )
-                    st.markdown(tags_html, unsafe_allow_html=True)
-                else:
-                    st.info("No skills detected.")
+                    st.markdown(
+                        f'<div style="margin-bottom: 1.5rem;">{tags_html}</div>', 
+                        unsafe_allow_html=True
+                    )
 
-                st.markdown("---")
+                # ── Professional Experience & Background ──
+                st.markdown("#### 💼 Background Detail")
+                sec_tabs = st.tabs(["🚀 Projects", "💼 Experience", "🎓 Education", "📋 Raw JSON"])
+                
+                with sec_tabs[0]:
+                    content = parsed.get("projects")
+                    if content:
+                        st.markdown(content)
+                    else:
+                        st.info("No projects section detected.")
 
-                # Section previews
-                sec_tab1, sec_tab2, sec_tab3, sec_tab4 = st.tabs(
-                    ["🎓 Education", "💼 Experience", "🚀 Projects", "📋 Full JSON"]
-                )
-                with sec_tab1:
-                    st.text(parsed.get("education") or "Not detected.")
-                with sec_tab2:
-                    st.text(parsed.get("experience") or "Not detected.")
-                with sec_tab3:
-                    st.text(parsed.get("projects") or "Not detected.")
-                with sec_tab4:
+                with sec_tabs[1]:
+                    content = parsed.get("experience")
+                    if content:
+                        st.markdown(content)
+                    else:
+                        st.info("No work experience section detected.")
+
+                with sec_tabs[2]:
+                    content = parsed.get("education")
+                    if content:
+                        st.markdown(content)
+                    else:
+                        st.info("No education section detected.")
+
+                with sec_tabs[3]:
                     st.json(parsed)
 
         # --- Embedding Stats ---
@@ -259,179 +303,553 @@ def display_input_workspace():
 
         # Job Description Section
         with st.expander("📝 Job Description Parameters", expanded=True):
-            input_mode = st.radio("Input Method", ["Paste Text", "Upload Document"], horizontal=True)
-
-            if input_mode == "Paste Text":
-                jd_text = st.text_area(
+            user_role = st.session_state.get("user_role")
+            
+            if user_role == "candidate":
+                st.info("📌 You are applying for the following role. The Job Description is pre-loaded and read-only.")
+                st.text_area(
                     "JD Content",
-                    placeholder="Enter the role requirements and context here...",
+                    value=st.session_state.get("jd_text", ""),
                     height=250,
-                    key="jd_text_input",
+                    disabled=True,
+                    key="jd_text_display"
                 )
             else:
-                jd_file = st.file_uploader("Load JD Source", type=["pdf", "docx"], key="jd_file_upload")
-                jd_text = ""
-                if jd_file:
-                    # Quick extract for JD files (reuse ingestion helpers)
-                    from modules.data_ingestion import extract_text, clean_text
-                    from pathlib import Path
-                    import tempfile, os
-                    tmp_path = Path("data") / "jd_temp" / jd_file.name
-                    tmp_path.parent.mkdir(parents=True, exist_ok=True)
-                    tmp_path.write_bytes(jd_file.getbuffer())
-                    raw = extract_text(tmp_path)
-                    jd_text = clean_text(raw)
-                    st.success(f"✅ JD loaded: {jd_file.name}")
-                    with st.expander("📄 JD Preview"):
-                        st.text(jd_text[:800])
+                input_mode = st.radio("Input Method", ["Paste Text", "Upload Document"], horizontal=True)
+
+                if input_mode == "Paste Text":
+                    st.text_area(
+                        "JD Content",
+                        placeholder="Enter the role requirements and context here...",
+                        height=250,
+                        key="jd_text",
+                    )
+                else:
+                    jd_file = st.file_uploader("Load JD Source", type=["pdf", "docx"], key="jd_file_upload")
+                    if jd_file:
+                        # Quick extract for JD files (reuse ingestion helpers)
+                        from modules.data_ingestion import extract_text, clean_text
+                        from pathlib import Path
+                        import tempfile, os
+                        tmp_path = Path("data") / "jd_temp" / jd_file.name
+                        tmp_path.parent.mkdir(parents=True, exist_ok=True)
+                        tmp_path.write_bytes(jd_file.getbuffer())
+                        raw = extract_text(tmp_path)
+                        jd_text_extracted = clean_text(raw)
+                        st.session_state["jd_text"] = jd_text_extracted
+                        st.success(f"✅ JD loaded: {jd_file.name}")
+                        with st.expander("📄 JD Preview"):
+                            st.text(jd_text_extracted[:800])
 
 # ── ELIGIBILITY & INTERVIEW LOGIC ──────────────────────────────────────────────
 def check_interview_eligibility():
     """
-    Evaluates candidate scores to decide if they proceed to interview.
-    Criteria: Overall Score >= 80, ATS >= 75, Fraud = 'Low'.
+    Evaluates if candidate has completed Stage 1 (Screening).
+    Now completion-based rather than score-based.
     """
-    match_result = st.session_state.get("match_result")
-    ats_result   = st.session_state.get("ats_result")
-    fraud_result = st.session_state.get("fraud_result")
-    llm_result   = st.session_state.get("llm_result")
-
-    if not match_result or not ats_result or not fraud_result:
-        return False
-
-    # Get Overall Score (favor LLM if available, fallback to similarity)
-    overall_score = 0
-    if llm_result and llm_result.get("status") == "success":
-        report = llm_result.get("report", {})
-        overall_score = report.get("match_percentage", 0)
-    else:
-        # Fallback to similarity score (match_result['score'] is 0.0-1.0)
-        # Note: ranked results use 'final_score', we'll look at the top one
-        if match_result.get("ranked"):
-            overall_score = match_result["ranked"][0].get("final_score", 0)
-        else:
-            overall_score = match_result.get("score", 0) * 100
-
-    ats_score  = ats_result.get("ats_score", 0)
-    fraud_risk = fraud_result.get("fraud_risk", "Unknown")
-
-    return overall_score >= 80 and ats_score >= 75 and fraud_risk == "Low"
+    return st.session_state.get("stage_1_complete", False)
 
 
 def render_interview_button():
-    """Renders the 'Proceed' button for eligible candidates."""
+    """Renders the Stage 1 → Stage 2 transition button."""
     st.markdown("<br>", unsafe_allow_html=True)
-    st.success("🎉 **Candidate has passed the initial screening!**")
+    st.success("🎉 **Stage 1 Complete! Candidate is ready for the Interview Stage.**")
+    st.markdown("""
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;
+                    padding:1rem 1.5rem;margin-bottom:1rem;">
+            <strong>📋 Next Step:</strong> Click below to complete identity verification before the interview.
+        </div>
+    """, unsafe_allow_html=True)
     if st.button("🚀 Proceed to Interview Rounds", use_container_width=True, type="primary"):
-        st.session_state["view"] = "interview"
+        st.session_state["current_page"] = "verification"
         st.rerun()
 
 
 def render_recommendations():
-    """Renders gap analysis and suggestions for non-eligible candidates."""
+    """Renders skill gap analysis and suggestions — available to all candidates who completed Stage 1."""
     rec_result = st.session_state.get("rec_result")
-    if rec_result and rec_result.get("status") == "success":
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.warning("📋 **Candidate doesn't meet the current interview threshold.**")
-        st.markdown("### 🎯 Skill Gap Analysis & Recommendations")
+    if not rec_result or rec_result.get("status") != "success":
+        return
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 🎯 Skill Gap Analysis & Recommendations")
+
+    # LLM Career Plan
+    llm_plan = rec_result.get("llm_career_plan")
+    if llm_plan:
+        with st.container(border=True):
+            st.markdown("#### 🧠 AI Career Coach")
+            st.write(llm_plan)
+
+    # Learning Paths
+    learning = rec_result.get("recommended_learning", [])
+    if learning:
+        with st.expander(f"📚 Suggested Learning Paths ({len(learning)})", expanded=True):
+            for rec in learning:
+                st.markdown(f"**{rec['priority']}. {rec['skill'].title()}** ({rec['domain']})")
+                for r in rec.get("resources", []):
+                    st.markdown(f"  {r}")
+                st.markdown("---")
+
+    # Alternative Roles
+    alt_roles = rec_result.get("alternative_roles", [])
+    if alt_roles:
+        with st.expander(f"🔀 Alternative Roles ({len(alt_roles)})", expanded=False):
+            for role in alt_roles:
+                pct   = role["match_pct"]
+                color = "#10b981" if pct >= 70 else ("#f59e0b" if pct >= 50 else "#64748b")
+                st.markdown(
+                    f"**{role['role']}** — "
+                    f"<span style='color:{color};font-weight:700'>{pct}% match</span> "
+                    f"({role['missing_count']} skills to go)",
+                    unsafe_allow_html=True,
+                )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STAGE 2 — CANDIDATE VERIFICATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+def validate_user_inputs(name: str, email: str, phone: str):
+    """
+    Validate personal-detail fields.
+
+    Returns
+    -------
+    (is_valid: bool, errors: list[str])
+    """
+    errors = []
+
+    if not name or len(name.strip()) < 2:
+        errors.append("Full name must be at least 2 characters.")
+
+    email_pattern = r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+    if not email or not re.match(email_pattern, email.strip()):
+        errors.append("Please enter a valid email address (e.g. name@domain.com).")
+
+    phone_clean = re.sub(r"[\s\-\(\)\+]", "", phone or "")
+    if not phone_clean.isdigit() or not (7 <= len(phone_clean) <= 15):
+        errors.append("Please enter a valid phone number (7–15 digits; spaces/dashes allowed).")
+
+    return len(errors) == 0, errors
+
+
+def validate_webcam_image(image_file):
+    """
+    Basic image-quality heuristics using PIL.
+
+    Checks
+    ------
+    1. Average brightness  — flags very dark images.
+    2. Edge-variance       — flags blurry images.
+    3. Centre-region variance — heuristic for face presence.
+
+    Returns
+    -------
+    (is_valid: bool, warnings: list[str])
+    """
+    warnings_out = []
+    try:
+        img      = Image.open(image_file).convert("RGB")
+        img_gray = img.convert("L")
+        pixels   = list(img_gray.getdata())
+
+        # 1. Brightness check
+        avg_brightness = sum(pixels) / len(pixels)
+        if avg_brightness < 55:
+            warnings_out.append(
+                "⚠️ Low lighting detected — please sit in a brighter environment."
+            )
+            return False, warnings_out
+
+        # 2. Sharpness via edge-detection variance
+        edge_pixels = list(img_gray.filter(ImageFilter.FIND_EDGES).getdata())
+        mean_e      = sum(edge_pixels) / len(edge_pixels)
+        variance    = sum((p - mean_e) ** 2 for p in edge_pixels) / len(edge_pixels)
+        if variance < 80:
+            warnings_out.append(
+                "⚠️ Image appears blurry — please hold still and ensure good focus."
+            )
+            return False, warnings_out
+
+        # 3. Centre-region activity heuristic (face presence)
+        w, h         = img.size
+        center_crop  = img_gray.crop((w // 4, h // 4, 3 * w // 4, 3 * h // 4))
+        c_pixels     = list(center_crop.getdata())
+        c_mean       = sum(c_pixels) / len(c_pixels)
+        c_variance   = sum((p - c_mean) ** 2 for p in c_pixels) / len(c_pixels)
+        if c_variance < 60:
+            warnings_out.append(
+                "⚠️ No face detected in the centre frame — "
+                "please position your face in the middle of the camera view."
+            )
+            return False, warnings_out
+
+        return True, []
+
+    except Exception as exc:
+        warnings_out.append(f"❌ Could not analyse image: {exc}")
+        return False, warnings_out
+
+
+def proceed_to_interview():
+    """Shows verification success banner and the button to enter the Interview stage."""
+    candidate_name = st.session_state.get("candidate_name", "Candidate")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+            border-radius: 20px; padding: 2.5rem; text-align: center;
+            box-shadow: 0 15px 35px rgba(16,185,129,0.25); margin-bottom: 2rem;">
+            <div style="font-size: 4rem; margin-bottom: 0.5rem;">✅</div>
+            <div style="color: #ecfdf5; font-size: 2rem; font-weight: 800;"
+            >Verification Completed Successfully!</div>
+            <div style="color: #6ee7b7; font-size: 1.1rem; margin-top: 0.6rem;">
+                Welcome, <strong>{candidate_name}</strong>.
+                Your identity has been confirmed. You may now enter the Interview Stage.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    if st.button(
+        "🎙️ Enter Interview Interface",
+        use_container_width=True,
+        type="primary",
+        key="enter_interview_btn",
+    ):
+        # Create DB session now that we have a candidate_id
+        from modules.candidate_db import create_interview_session
+        mode = st.session_state.get("interview_mode", "normal")
+        candidate_id = st.session_state.get("candidate_id")
         
-        # Summary
-        if rec_result.get("improvement_summary"):
-            st.markdown(rec_result["improvement_summary"])
+        if candidate_id:
+            job_id = st.session_state.get("current_job_id", 0)
+            
+            # Extract Stage 1 score from analysis result
+            ats_res = st.session_state.get("ats_result", {})
+            ats_val = ats_res.get("ats_score", 0.0)
+            
+            session_id = create_interview_session(candidate_id, mode, job_id, ats_score=ats_val)
+            st.session_state["interview_session_id"] = session_id
+            st.session_state["current_page"] = "interview_mode"
+            st.rerun()
 
-        # LLM Plan if available
-        llm_plan = rec_result.get("llm_career_plan")
-        if llm_plan:
-            with st.container(border=True):
-                st.markdown("#### 🧠 AI Career Coach")
-                st.write(llm_plan)
-        
-        # Learning Paths
-        learning = rec_result.get("recommended_learning", [])
-        if learning:
-            with st.expander(f"📚 Suggested Learning Paths ({len(learning)})", expanded=True):
-                for rec in learning:
-                    st.markdown(f"**{rec['priority']}. {rec['skill'].title()}** ({rec['domain']})")
-                    for r in rec.get("resources", []):
-                        st.markdown(f"  {r}")
-                    st.markdown("---")
 
-        # Alternative Roles
-        alt_roles = rec_result.get("alternative_roles", [])
-        if alt_roles:
-            with st.expander(f"🔀 Alternative Roles ({len(alt_roles)})", expanded=False):
-                for role in alt_roles:
-                    pct = role['match_pct']
-                    color = "#10b981" if pct >= 70 else ("#f59e0b" if pct >= 50 else "#64748b")
-                    st.markdown(
-                        f"**{role['role']}** — "
-                        f"<span style='color:{color};font-weight:700'>{pct}% match</span> "
-                        f"({role['missing_count']} skills to go)",
-                        unsafe_allow_html=True,
-                    )
+        else:
+            st.error("Candidate record not found. Please re-run verification.")
 
-def render_interview_ui():
-    """The new AI Interview Engine interface."""
+
+def render_verification_page():
+    """
+    Stage 2 Gateway — Candidate Identity Verification.
+
+    Collects:
+      • Full name, email, phone  (validated text inputs)
+      • Live webcam photo        (via st.camera_input / getUserMedia — no uploads)
+
+    On success:
+      • Stores record in local SQLite via candidate_db.store_candidate_data()
+      • Sets session_state["verification_complete"] = True
+      • Routes the user to the Interview stage
+    """
+    # ── Stage guard ───────────────────────────────────────────────────────────
+    if not st.session_state.get("stage_1_complete", False):
+        st.error("❌ Access Denied: Please complete Stage 1 Screening first.")
+        if st.button("⬅️ Return to Dashboard", key="verif_guard_back"):
+            role = st.session_state.get("user_role", "candidate")
+            st.session_state["current_page"] = f"{role}_dashboard"
+            st.rerun()
+        st.stop()
+
+    local_css()
+
+    # ── Already verified? Skip straight to confirmation ───────────────────────
+    if st.session_state.get("verification_complete"):
+        st.markdown("""
+            <div class="header-container">
+                <div class="main-title">🔐 Candidate Verification</div>
+                <div class="subtitle">Stage 2 — Identity Confirmed</div>
+            </div>
+        """, unsafe_allow_html=True)
+        _, mid, _ = st.columns([1, 3, 1])
+        with mid:
+            proceed_to_interview()
+        return
+
+    # ── Page header ───────────────────────────────────────────────────────────
     st.markdown("""
         <div class="header-container">
-            <h1 class="main-title">AI Interview Engine</h1>
-            <p class="subtitle">Autonomous Candidate Assessment Phase</p>
+            <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;
+                        letter-spacing:0.12em;margin-bottom:0.6rem;">Stage 2 Pre-Check</div>
+            <div class="main-title">🔐 Candidate Verification</div>
+            <div class="subtitle">
+                Complete identity verification before entering the interview.<br>
+                All fields and a live photo are mandatory.
+            </div>
         </div>
     """, unsafe_allow_html=True)
 
-    # Initialize progress if missing
-    if "interview_step" not in st.session_state:
-        st.session_state["interview_step"] = 1
-    if "answers" not in st.session_state:
-        st.session_state["answers"] = {}
+    col_back, _ = st.columns([1, 5])
+    with col_back:
+        if st.button("⬅️ Back to Results", key="verif_back_btn"):
+            st.session_state["current_page"] = "screening"
+            st.rerun()
 
-    current_step = st.session_state["interview_step"]
-    total_steps = 5
-
-    _, mid, _ = st.columns([1, 4, 1])
+    _, mid, _ = st.columns([1, 3, 1])
     with mid:
-        # A. Interview Instructions
+
+        # ── Step indicator ────────────────────────────────────────────────────
+        st.markdown("""
+            <div style="display:flex;align-items:flex-start;justify-content:center;
+                        gap:0;margin:1.8rem 0 2.2rem;">
+                <div style="text-align:center;min-width:90px;">
+                    <div style="width:44px;height:44px;border-radius:50%;
+                                background:#2563eb;color:white;font-weight:700;
+                                font-size:1.1rem;line-height:44px;margin:0 auto;">1</div>
+                    <div style="font-size:0.75rem;color:#2563eb;font-weight:600;
+                                margin-top:0.35rem;">Personal<br>Details</div>
+                </div>
+                <div style="flex:1;border-top:2px dashed #cbd5e1;margin-top:22px;"></div>
+                <div style="text-align:center;min-width:90px;">
+                    <div style="width:44px;height:44px;border-radius:50%;
+                                background:#2563eb;color:white;font-weight:700;
+                                font-size:1.1rem;line-height:44px;margin:0 auto;">2</div>
+                    <div style="font-size:0.75rem;color:#2563eb;font-weight:600;
+                                margin-top:0.35rem;">Live<br>Photo</div>
+                </div>
+                <div style="flex:1;border-top:2px dashed #cbd5e1;margin-top:22px;"></div>
+                <div style="text-align:center;min-width:90px;">
+                    <div style="width:44px;height:44px;border-radius:50%;
+                                background:#94a3b8;color:white;font-weight:700;
+                                font-size:1.1rem;line-height:44px;margin:0 auto;">3</div>
+                    <div style="font-size:0.75rem;color:#94a3b8;font-weight:600;
+                                margin-top:0.35rem;">Confirm &amp;<br>Proceed</div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # ── STEP 1 — Personal Details ─────────────────────────────────────────
+        parsed = st.session_state.get("parsed_resume", {})
+        name_prefilled = bool(parsed.get("name"))
+        email_prefilled = bool(parsed.get("email"))
+        
+        st.markdown("#### 👤 Step 1 — Personal Details")
+        if name_prefilled and email_prefilled:
+            st.info("ℹ️ Identity details auto-filled from resume (read-only for security)")
+        
         with st.container(border=True):
-            st.markdown("### 📝 Interview Instructions")
-            st.write("""
-                Welcome to the AI Interview round. You will be asked 5 questions based on your specialized skills and the job requirements.
-                Please provide concise, detailed answers for the best assessment.
-            """)
+            full_name = st.text_input(
+                "Full Name \u002a",
+                value=parsed.get("name") or "",
+                placeholder="Enter your full legal name",
+                key="verif_name",
+                disabled=name_prefilled,
+                help="Locked to match resume data" if name_prefilled else None
+            )
+            col_e, col_p = st.columns(2)
+            with col_e:
+                email = st.text_input(
+                    "Email Address \u002a",
+                    value=parsed.get("email") or "",
+                    placeholder="you@example.com",
+                    key="verif_email",
+                    disabled=email_prefilled,
+                    help="Locked to match resume data" if email_prefilled else None
+                )
+            with col_p:
+                phone = st.text_input(
+                    "Phone Number \u002a",
+                    value=parsed.get("phone") or "",
+                    placeholder="+91 98765 43210",
+                    key="verif_phone",
+                )
 
-        # B. Start Interview / Status
-        st.progress(current_step / total_steps, text=f"Question {current_step} of {total_steps}")
+        # ── Email Verification (Only if NOT prefilled) ────────────────────────
+        if not email_prefilled:
+            st.markdown("<br>", unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("📧 **Email Verification Required**")
+                st.caption("Please verify your manual email entry to proceed.")
+                
+                c_otp1, c_otp2 = st.columns([2, 1])
+                with c_otp2:
+                    if st.button("📩 Send OTP", use_container_width=True):
+                        if not email or "@" not in email:
+                            st.error("Please enter a valid email first.")
+                        else:
+                            otp = generate_otp()
+                            res = send_otp_email(email, otp)
+                            if res["success"]:
+                                st.session_state["stored_otp"] = otp
+                                st.session_state["otp_expiry"] = time.time() + 300 # 5 mins
+                                st.success("OTP sent!")
+                            else:
+                                st.error(res["message"])
+                
+                with c_otp1:
+                    user_otp = st.text_input("Enter 6-digit Code", placeholder="XXXXXX", label_visibility="collapsed")
+                    if user_otp:
+                        verif = verify_otp_logic(
+                            user_otp, 
+                            st.session_state.get("stored_otp"), 
+                            st.session_state.get("otp_expiry", 0)
+                        )
+                        if verif["valid"]:
+                            st.session_state["email_verified"] = True
+                            st.success("✅ Email Verified")
+                        else:
+                            st.error(verif["message"])
+                            st.session_state["email_verified"] = False
 
-        # C. Question Display Area
-        st.markdown(f"#### ❓ Question {current_step}")
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── STEP 2 — Live Webcam Photo (getUserMedia via st.camera_input) ─────
+        st.markdown("#### 📸 Step 2 — Live Photo Capture (Mandatory)")
         with st.container(border=True):
-            st.write(f"This is a placeholder for Interview Question #{current_step}. [System under development]")
+            st.markdown("""
+                <div style="background:#eff6ff;border-left:4px solid #2563eb;
+                            border-radius:0 10px 10px 0;padding:1rem 1.2rem;
+                            margin-bottom:1rem;">
+                    <strong>📋 Photo Guidelines</strong>
+                    <ul style="margin:0.6rem 0 0;padding-left:1.2rem;color:#334155;
+                               line-height:1.8;">
+                        <li>Sit in a <strong>well-lit room</strong> — avoid backlighting</li>
+                        <li>Keep your <strong>face clearly visible</strong> and centred in the frame</li>
+                        <li>Avoid <strong>blurry or dark</strong> captures — hold still</li>
+                        <li>Only <strong>live webcam photos</strong> are accepted — file uploads are not allowed</li>
+                    </ul>
+                </div>
+            """, unsafe_allow_html=True)
 
-        # D. Answer Input
-        st.markdown("#### 🖊️ Your Answer")
-        answer = st.text_area("Type your response here:", key=f"ans_{current_step}", height=200)
+            photo = st.camera_input(
+                "Click the button below to activate your webcam and capture a photo",
+                key="verif_camera",
+                help="Your device webcam will open via getUserMedia. Frame your face and click \u2018Take Photo\u2019.",
+            )
 
-        # Voice input placeholder
-        st.caption("🎙️ Voice Input — Coming Soon (v0.8)")
+            if photo:
+                col_preview, col_status = st.columns([1, 1])
+                with col_preview:
+                    st.image(photo, caption="Captured photo preview", use_container_width=True)
+                with col_status:
+                    valid_img, img_warnings = validate_webcam_image(photo)
+                    if valid_img:
+                        st.success("✅ Photo quality check passed!\nImage is clear and well-lit.")
+                    else:
+                        for w in img_warnings:
+                            st.warning(w)
+                        st.info(
+                            "💡 Please retake the photo by clicking **'Clear photo'** above, "
+                            "then try again."
+                        )
 
-        # E. Navigation Buttons
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("⬅️ Back to Dashboard"):
-                st.session_state["view"] = "dashboard"
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── SUBMIT & VERIFY ───────────────────────────────────────────────────
+        if st.button(
+            "🔐 Run Identity Check & Verify",
+            use_container_width=True,
+            type="primary",
+            key="verif_submit_btn",
+        ):
+            name_val   = st.session_state.get("verif_name",  "").strip()
+            email_val  = st.session_state.get("verif_email", "").strip()
+            phone_val  = st.session_state.get("verif_phone", "").strip()
+            photo_file = st.session_state.get("verif_camera")
+
+            # 1. Basic field mandatory check
+            if not name_val or not email_val or not phone_val or not photo_file:
+                st.error("❌ All fields and a live photo are mandatory for verification.")
+                st.stop()
+
+            # 1b. OTP Check (Only if manual email)
+            parsed = st.session_state.get("parsed_resume", {})
+            email_prefilled = bool(parsed.get("email"))
+            if not email_prefilled and not st.session_state.get("email_verified"):
+                st.error("❌ Email verification required. Please verify the OTP sent to your email.")
+                st.stop()
+
+            # 2. Run Cross-Validation against Stage 1 Data
+            
+            with st.spinner("🕵️ Verification in progress..."):
+                name_result  = verify_name(parsed.get("name"), name_val)
+                email_match  = verify_email(parsed.get("email"), email_val)
+                phone_match  = verify_phone(parsed.get("phone"), phone_val)
+                face_result  = verify_identity(parsed.get("profile_photo"), photo_file.getvalue())
+            
+            # Store results for dashboard
+            st.session_state["verif_results"] = {
+                "name": name_result,
+                "email": email_match,
+                "phone": phone_match,
+                "face": face_result
+            }
+            
+            # MAJOR MISMATCH CHECK
+            if not email_match:
+                st.error("🛑 IDENTITY ALERT: Email does not match the resume. Access Blocked.")
+                st.stop()
+            
+            if face_result["status"] == "success" and not face_result["match"]:
+                st.error("🛑 IDENTITY ALERT: Live face does not match resume photo. Access Blocked.")
+                st.stop()
+
+            # If we reach here, minor mismatches are warnings but allowed
+            if not name_result["match"] or not phone_match:
+                st.warning("⚠️ Some details vary slightly from the resume, but identity is confirmed.")
+
+            # — Persist to database
+            try:
+                candidate_id = store_candidate_data(
+                    full_name  = name_val,
+                    email      = email_val,
+                    phone      = phone_val,
+                    photo_bytes= photo_file.getvalue(),
+                    session_id = str(id(st.session_state)),
+                )
+                st.session_state["candidate_id"]           = candidate_id
+                st.session_state["candidate_name"]         = name_val
+                st.session_state["candidate_email"]        = email_val
+                st.session_state["verification_complete"]  = True
+                st.balloons()
                 st.rerun()
+            except Exception as exc:
+                st.error(f"❌ Database error — could not save record: {exc}")
 
-        with col2:
-            if current_step < total_steps:
-                if st.button("Next Question ➡️", use_container_width=True):
-                    st.session_state["interview_step"] += 1
-                    st.rerun()
-            else:
-                if st.button("✔️ Submit Interview", use_container_width=True, type="primary"):
-                    st.balloons()
-                    st.success("✅ Interview submitted successfully! Our recruiters will review your responses shortly.")
-                    if st.button("Return to Dashboard"):
-                        st.session_state["view"] = "dashboard"
-                        st.rerun()
+    # ── VERIFICATION DASHBOARD (Persistent after submission attempt) ─────────
+    res = st.session_state.get("verif_results")
+    if res:
+        st.markdown("<br>", unsafe_allow_html=True)
+        _, mid, _ = st.columns([1, 3, 1])
+        with mid:
+            st.markdown("### 📋 Verification Summary")
+            c1, c2, c3, c4 = st.columns(4)
+            
+            def get_status_ui(is_match):
+                return ("✅ Match", "#10b981") if is_match else ("❌ Mismatch", "#ef4444")
+                
+            with c1:
+                label, color = get_status_ui(res["name"]["match"])
+                st.metric("Name (Fuzzy)", label, delta=f"{res['name']['score']*100:.0f}%", delta_color="normal")
+            with c2:
+                label, color = get_status_ui(res["email"])
+                st.metric("Email (Exact)", label)
+            with c3:
+                label, color = get_status_ui(res["phone"])
+                st.metric("Phone (Suffix)", label)
+            with c4:
+                face = res["face"]
+                if face["status"] == "no_resume_photo":
+                    st.metric("Face Match", "N/A", help="No photo found in resume.")
+                elif face["status"] == "skipped_lib_missing":
+                    st.metric("Face Match", "Skipped", help=face["error"])
+                else:
+                    label, color = get_status_ui(face["match"])
+                    st.metric("Face ID", label, delta=f"{face['score']*100:.0f}%" if face["status"]=="success" else "0%", delta_color="normal")
+
+
+# Unified Interview UI is now handled via modules/interview_ui.py
+
+# Legacy interview function removed. System now uses modules/interview_ui.py
 
 
 def display_dashboard():
@@ -510,16 +928,41 @@ def display_dashboard():
                 st.markdown("#### 🧠 Top Matching Segments")
                 top_chunks = candidate.get("top_chunks", [])
                 if top_chunks:
-                    for i, chunk in enumerate(top_chunks[:3], 1):
+                    # Map section keys to readable labels
+                    section_map = {
+                        "experience": "💼 Work Experience",
+                        "projects":   "🚀 Project / Portfolio",
+                        "skills":     "🛠 Skills & Expertise",
+                        "summary":     "📋 Summary / Objective",
+                        "education":  "🎓 Education",
+                        "overview":   "🔍 General Overview"
+                    }
+                    
+                    for i, chunk in enumerate(top_chunks, 1):
                         score_pct = chunk['score'] * 100
-                        st.markdown(
-                            f"**#{i}** ({chunk['section']}) — `{score_pct:.1f}%` match"
-                        )
-                        st.caption(chunk["chunk_text"][:200])
-                        if i < len(top_chunks[:3]):
+                        section_display = section_map.get(chunk['section'], chunk['section'].title())
+                        
+                        st.markdown(f"""
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>#{i}</strong> 
+                                <span style="background:#f1f5f9; color:#475569; padding:2px 8px; 
+                                             border-radius:6px; font-size:0.75rem; font-weight:700; 
+                                             margin-left:8px; border:1px solid #e2e8f0;">
+                                    {section_display.upper()}
+                                </span>
+                                <span style="color:#2563eb; font-weight:700; margin-left:12px;">
+                                    {score_pct:.1f}% Match
+                                </span>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Clean display of chunk text
+                        st.write(chunk["chunk_text"])
+                        
+                        if i < len(top_chunks):
                             st.markdown("---")
                 else:
-                    st.info("No chunk-level data available.")
+                    st.info("No high-relevance segments found for this JD.")
 
         # JD Skills extracted
         jd_skills = match_result.get("jd_skills", [])
@@ -616,7 +1059,7 @@ def display_dashboard():
                 ats_color, grade_icon = "#ef4444", "🔴"
 
             # ATS score KPIs
-            ats_k1, ats_k2, ats_k3, ats_k4 = st.columns(4)
+            ats_k1, ats_k2, ats_k4 = st.columns(3)
             ats_k1.markdown(f"""
                 <div class="metric-card-container">
                     <div class="metric-label">ATS Score</div>
@@ -628,21 +1071,14 @@ def display_dashboard():
                 <div class="metric-card-container">
                     <div class="metric-label">Section Score</div>
                     <div class="metric-value" style="font-size:1.8rem">{ats_result['section_score']}</div>
-                    <div style="color:#64748b;font-weight:600">Weight: 40%</div>
-                </div>
-            """, unsafe_allow_html=True)
-            ats_k3.markdown(f"""
-                <div class="metric-card-container">
-                    <div class="metric-label">Keyword Score</div>
-                    <div class="metric-value" style="font-size:1.8rem">{ats_result['keyword_score']:.1f}</div>
-                    <div style="color:#64748b;font-weight:600">Weight: 40%</div>
+                    <div style="color:#64748b;font-weight:600">Weight: 60%</div>
                 </div>
             """, unsafe_allow_html=True)
             ats_k4.markdown(f"""
                 <div class="metric-card-container">
                     <div class="metric-label">Structure Score</div>
                     <div class="metric-value" style="font-size:1.8rem">{ats_result['structure_score']:.1f}</div>
-                    <div style="color:#64748b;font-weight:600">Weight: 20%</div>
+                    <div style="color:#64748b;font-weight:600">Weight: 40%</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -665,24 +1101,15 @@ def display_dashboard():
                     struct_ok = checklist.get("structure_valid", False)
                     struct_icon = "✅" if struct_ok else "⚠️"
                     st.markdown(f"{struct_icon} **Chronological** order")
-                    density_pct = checklist.get("keyword_density", 0) * 100
-                    density_icon = "✅" if density_pct >= 50 else ("🟡" if density_pct >= 30 else "🔴")
-                    st.markdown(f"{density_icon} **Keyword Density**: {density_pct:.1f}%")
 
             with kw_col:
                 with st.container(border=True):
-                    st.markdown("#### 🎯 Keyword Analysis")
-                    matched = ats_result.get("matched_keywords", [])[:12]
-                    unmatched = ats_result.get("unmatched_keywords", [])[:12]
-                    if matched:
-                        st.caption(f"✅ Matched ({len(ats_result.get('matched_keywords',[]))})")
-                        tags_m = " ".join(f'<span class="tag tag-match">{k}</span>' for k in matched)
-                        st.markdown(tags_m, unsafe_allow_html=True)
-                    if unmatched:
-                        st.markdown("")
-                        st.caption(f"🔴 Missing ({len(ats_result.get('unmatched_keywords',[]))})")
-                        tags_u = " ".join(f'<span class="tag tag-missing">{k}</span>' for k in unmatched)
-                        st.markdown(tags_u, unsafe_allow_html=True)
+                    st.markdown("#### 🎯 Match Integrity")
+                    st.info(
+                        "Candidate's professional profile is cross-verified against "
+                        "Job Description semantics. Direct keyword lists are hidden "
+                        "to emphasize depth over buzzword density."
+                    )
 
             # ATS Suggestions
             with st.expander("💡 ATS Improvement Suggestions", expanded=True):
@@ -751,12 +1178,12 @@ def display_dashboard():
                     st.write(llm_verdict)
 
 
-        # ── INTERVIEW ELIGIBILITY OVERRIDE ──────────────────────────────
-        eligible = check_interview_eligibility()
-        if eligible:
+        # ── STAGE 2 TRANSITION ──────────────────────────────
+        if st.session_state.get("stage_1_complete"):
             render_interview_button()
-        else:
-            render_recommendations()
+            
+        # Also show recommendations for improvement regardless of stage
+        render_recommendations()
 
 
     else:
@@ -842,6 +1269,7 @@ def analyze_candidate(parsed: dict, jd_text: str):
     st.session_state["rec_result"] = rec_result
 
     if match_result["status"] == "success":
+        st.session_state["stage_1_complete"] = True
         st.toast(match_result["message"], icon="✅")
         st.rerun()
     else:
@@ -918,6 +1346,7 @@ def analyze_with_recommendation(parsed: dict, jd_text: str):
         st.toast(llm_result["message"], icon="🧠")
         # Only rerun if BOTH matching and LLM succeeded
         if match_result["status"] == "success":
+            st.session_state["stage_1_complete"] = True
             st.toast(match_result["message"], icon="✅")
             st.rerun()
 
@@ -927,93 +1356,159 @@ def analyze_with_recommendation(parsed: dict, jd_text: str):
 
 # --- INTERVIEW VIEW WRAPPER ---
 
+def render_screening_page():
+    """Renders the Stage 1: Resume Screening & Matching interface."""
+    display_header()
+    
+    # ── Main Content ─────────────────────────────────────────────────────
+    _, mid, _ = st.columns([1, 4, 1])
+    with mid:
+        display_input_workspace()
+
+        # ── Analysis Mode Selector ──────────────────────────────────────────
+        st.markdown("<br>", unsafe_allow_html=True)
+        analysis_mode = st.radio(
+            "Select Analysis Type:",
+            [
+                "⚡ Analyze Candidate",
+                "🧠 Analyze with AI Recommendations",
+            ],
+            horizontal=True,
+            help=(
+                "**Analyze Candidate**: Fast local matching — no API needed.\n\n"
+                "**Analyze with AI Recommendations**: Deeper LLM insights using Gemini. Requires .env API key."
+            ),
+        )
+
+        # ── Action Button ──────────────────────────────────────────────────
+        btn_label = (
+            "⚡ Analyze Candidate"
+            if analysis_mode.startswith("⚡")
+            else "🧠 Analyze with AI Recommendations"
+        )
+        if st.button(btn_label, use_container_width=True):
+            parsed  = st.session_state.get("parsed_resume")
+            jd_text = st.session_state.get("jd_text", "").strip()
+
+            if not parsed:
+                st.error("❌ Please upload a resume first.")
+            elif not jd_text:
+                st.error("❌ Please enter or upload a Job Description.")
+            else:
+                try:
+                    if analysis_mode.startswith("⚡"):
+                        analyze_candidate(parsed, jd_text)
+                    else:
+                        analyze_with_recommendation(parsed, jd_text)
+                except Exception as e:
+                    st.error(f"❌ Analysis error: {str(e)}")
+
+        render_main_dashboard()
+
+
 def render_main_dashboard():
     display_dashboard()
 
 
 # --- APP ROUTER ---
 def main():
-    if "view" not in st.session_state:
-        st.session_state["view"] = "dashboard"
+    # ── Session state initialisation ─────────────────────────────────────────
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = "role_selection"
+    if "jd_text" not in st.session_state:
+        st.session_state["jd_text"] = ""
+    if "stage_1_complete" not in st.session_state:
+        st.session_state["stage_1_complete"] = False
+    if "verification_complete" not in st.session_state:
+        st.session_state["verification_complete"] = False
+    if "GEMINI_API_KEY" not in st.session_state:
+        st.session_state["GEMINI_API_KEY"] = _GEMINI_API_KEY
+    if "ASSEMBLYAI_API_KEY" not in st.session_state:
+        st.session_state["ASSEMBLYAI_API_KEY"] = _ASSEMBLYAI_API_KEY
 
-    local_css()
+    # Ensure DB schema exists on every startup
+    init_db()
+    init_auth_db()
 
-    if st.session_state["view"] == "interview":
-        render_interview_ui()
-    else:
-        # ── Sidebar: System Status ───────────────────────────────────────────
+    current_page = st.session_state["current_page"]
+    role = st.session_state.get("user_role")
+
+    # ── Sidebar: Shared Content ──────────────────────────────────────────
+    # Only show sidebar if logged in (except on role_selection/login)
+    if current_page not in ["role_selection", "login"]:
         with st.sidebar:
             st.markdown("### 🧠 HireMind AI")
             st.caption("Autonomous HR Operating System")
             st.markdown("---")
-
+            
+            if role == "admin":
+                if st.button("📊 Admin Dashboard", use_container_width=True):
+                    st.session_state["current_page"] = "admin_dashboard"
+                    st.rerun()
+                if st.button("🔍 Screening Tool", use_container_width=True):
+                    st.session_state["current_page"] = "screening"
+                    st.rerun()
+            elif role == "candidate":
+                if st.button("🏠 Candidate Home", use_container_width=True):
+                    st.session_state["current_page"] = "candidate_dashboard"
+                    st.rerun()
+            
+            st.markdown("---")
             st.markdown("#### ⚙️ System Status")
-            # Check which modules are ready
-            st.markdown("✅ Data Ingestion")
-            st.markdown("✅ NLP Parsing")
-            st.markdown("✅ Vector Embeddings")
-            st.markdown("✅ Semantic Matching")
-            st.markdown("✅ ATS Integrity")
-            st.markdown("✅ Fraud Detection")
-            st.markdown("✅ Recommendation Engine")
-
-            # Show API key status from .env
+            st.markdown("✅ Modules Operational")
             if _GEMINI_API_KEY:
                 st.markdown("✅ Gemini AI — Ready")
-            elif _OPENAI_API_KEY:
-                st.markdown("✅ OpenAI — Ready")
             else:
-                st.markdown("⚠️ LLM — No API key in .env")
+                st.markdown("⚠️ LLM — No API key")
 
             st.markdown("---")
-            st.caption("v0.7 | Modules: 7/8 complete")
+            if st.button("System Logout"):
+                from modules.auth_ui import logout
+                logout()
 
-        display_header()
+    # ── Central Router ───────────────────────────────────────────────────
+    if current_page == "role_selection":
+        render_role_selection()
 
-        # ── Main Content ─────────────────────────────────────────────────────
-        _, mid, _ = st.columns([1, 4, 1])
-        with mid:
-            display_input_workspace()
+    elif current_page == "login":
+        render_login_page()
 
-            # ── Analysis Mode Selector ──────────────────────────────────────────
-            st.markdown("<br>", unsafe_allow_html=True)
-            analysis_mode = st.radio(
-                "Select Analysis Type:",
-                [
-                    "⚡ Analyze Candidate",
-                    "🧠 Analyze with AI Recommendations",
-                ],
-                horizontal=True,
-                help=(
-                    "**Analyze Candidate**: Fast local matching — no API needed.\n\n"
-                    "**Analyze with AI Recommendations**: Deeper LLM insights using Gemini. Requires .env API key."
-                ),
-            )
+    elif current_page == "candidate_dashboard":
+        render_candidate_dashboard()
 
-            # ── Action Button ──────────────────────────────────────────────────
-            btn_label = (
-                "⚡ Analyze Candidate"
-                if analysis_mode.startswith("⚡")
-                else "🧠 Analyze with AI Recommendations"
-            )
-            if st.button(btn_label, use_container_width=True):
-                parsed  = st.session_state.get("parsed_resume")
-                jd_text = st.session_state.get("jd_text_input", "").strip()
+    elif current_page == "admin_dashboard":
+        render_admin_dashboard()
 
-                if not parsed:
-                    st.error("❌ Please upload a resume first.")
-                elif not jd_text:
-                    st.error("❌ Please enter or upload a Job Description.")
-                else:
-                    try:
-                        if analysis_mode.startswith("⚡"):
-                            analyze_candidate(parsed, jd_text)
-                        else:
-                            analyze_with_recommendation(parsed, jd_text)
-                    except Exception as e:
-                        st.error(f"❌ Analysis error: {str(e)}")
+    elif current_page == "screening":
+        local_css()
+        render_screening_page()
 
-            render_main_dashboard()
+    elif current_page == "verification":
+        local_css()
+        render_verification_page()
+
+    elif current_page == "interview_mode":
+        local_css()
+        render_mode_selection()
+
+    elif current_page == "interview":
+        local_css()
+        render_interview_ui()
+
+    elif current_page == "voice_interview":
+        local_css()
+        render_voice_interview()
+
+    elif current_page == "final_report":
+        local_css()
+        render_combined_report()
+
+    else:
+        # Fallback
+        st.session_state["current_page"] = "role_selection"
+        st.rerun()
+
+# Logic extracted to render_screening_page()
 
 
 

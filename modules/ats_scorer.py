@@ -5,7 +5,6 @@ Rule-based ATS (Applicant Tracking System) evaluation engine.
 
 Evaluates a resume against a job description using:
     - Section presence checks
-    - Keyword density analysis (spaCy-powered)
     - Experience structure validation (chronological detection)
     - Weighted aggregate scoring
 
@@ -15,8 +14,6 @@ All logic is deterministic and explainable.
 Pipeline:
     parsed_json + jd_text
         → check_section_presence()
-        → extract_keywords_from_jd()
-        → compute_keyword_density()
         → validate_experience_structure()
         → calculate_ats_score()
         → generate_ats_feedback()
@@ -57,9 +54,8 @@ REQUIRED_SECTIONS = {
 
 # Weight distribution for ATS score
 WEIGHTS = {
-    "section":   0.40,
-    "keyword":   0.40,
-    "structure": 0.20,
+    "section":   0.60,
+    "structure": 0.40,
 }
 
 # Regex patterns for date detection in experience entries
@@ -144,138 +140,6 @@ def check_section_presence(parsed_json: dict) -> dict:
     }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  2. extract_keywords_from_jd(jd_text)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def extract_keywords_from_jd(jd_text: str) -> list[str]:
-    """
-    Extracts technical/meaningful keywords from the Job Description using spaCy.
-
-    Steps:
-        1. Tokenize with spaCy
-        2. Keep only NOUN, PROPN, ADJ tokens
-        3. Remove stopwords and very short tokens
-        4. Lowercase + deduplicate
-
-    Args:
-        jd_text: Raw job description text.
-
-    Returns:
-        Sorted list of unique lowercase keywords.
-    """
-    if not jd_text or not jd_text.strip():
-        return []
-
-    nlp = _get_nlp()
-    doc = nlp(jd_text[:50000])  # Limit to avoid spaCy memory issues
-
-    keywords = set()
-    for token in doc:
-        word = token.text.lower().strip()
-        if (
-            token.pos_ in _MEANINGFUL_POS
-            and not token.is_stop
-            and word not in _STOPWORDS
-            and len(word) >= 3
-            and word.isalpha()
-        ):
-            keywords.add(word)
-
-    # Also extract multi-word noun phrases (e.g., "machine learning", "data science")
-    for chunk in doc.noun_chunks:
-        phrase = chunk.text.lower().strip()
-        words = phrase.split()
-        if 2 <= len(words) <= 4:
-            # Only keep if all parts are non-stopwords
-            if all(w not in _STOPWORDS and len(w) >= 2 for w in words):
-                keywords.add(phrase)
-
-    result = sorted(keywords)
-    logger.debug("Extracted %d keywords from JD.", len(result))
-    return result
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  3. compute_keyword_density(resume_data, jd_keywords)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def compute_keyword_density(resume_data: dict, jd_keywords: list[str]) -> dict:
-    """
-    Measures what fraction of JD keywords appear anywhere in the resume.
-
-    Case-insensitive. Searches across: skills, experience, projects, education.
-
-    density = matched_keywords / total_jd_keywords
-
-    Args:
-        resume_data:  Parsed resume dict.
-        jd_keywords:  Keywords extracted from JD via extract_keywords_from_jd().
-
-    Returns:
-        {
-            "keyword_score": float (0-100),
-            "keyword_density": float (0.0 - 1.0),
-            "matched_keywords": [...],
-            "unmatched_keywords": [...],
-            "total_jd_keywords": int,
-        }
-    """
-    if not jd_keywords:
-        return {
-            "keyword_score":       50.0,
-            "keyword_density":     0.5,
-            "matched_keywords":    [],
-            "unmatched_keywords":  [],
-            "total_jd_keywords":   0,
-        }
-
-    # Build a single lowercase corpus from all resume fields
-    corpus_parts = []
-
-    skills = resume_data.get("skills", [])
-    if isinstance(skills, list):
-        corpus_parts.extend([s.lower() for s in skills])
-
-    for field in ("experience", "projects", "education"):
-        val = resume_data.get(field, "")
-        if isinstance(val, list):
-            corpus_parts.extend([str(v).lower() for v in val])
-        elif isinstance(val, str):
-            corpus_parts.append(val.lower())
-
-    resume_corpus = " ".join(corpus_parts)
-
-    matched = []
-    unmatched = []
-
-    for kw in jd_keywords:
-        # Use word boundary matching for single-word keywords
-        if len(kw.split()) == 1:
-            pattern = r"\b" + re.escape(kw) + r"\b"
-        else:
-            pattern = re.escape(kw)
-
-        if re.search(pattern, resume_corpus, re.IGNORECASE):
-            matched.append(kw)
-        else:
-            unmatched.append(kw)
-
-    density = len(matched) / len(jd_keywords)
-    keyword_score = density * 100
-
-    logger.debug(
-        "Keyword density: %.2f (%d/%d matched)",
-        density, len(matched), len(jd_keywords)
-    )
-
-    return {
-        "keyword_score":      keyword_score,
-        "keyword_density":    round(density, 3),
-        "matched_keywords":   matched,
-        "unmatched_keywords": unmatched,
-        "total_jd_keywords":  len(jd_keywords),
-    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -399,20 +263,17 @@ def validate_experience_structure(experience_data) -> dict:
 
 def calculate_ats_score(
     section_score: float,
-    keyword_score: float,
     structure_score: float,
 ) -> float:
     """
     Computes the weighted final ATS score (0–100).
 
     Formula:
-        ATS = 0.40 * section_score
-            + 0.40 * keyword_score
-            + 0.20 * structure_score
+        ATS = 0.60 * section_score
+            + 0.40 * structure_score
 
     Args:
         section_score:   0–100 from check_section_presence()
-        keyword_score:   0–100 from compute_keyword_density()
         structure_score: 0–100 from validate_experience_structure()
 
     Returns:
@@ -420,13 +281,12 @@ def calculate_ats_score(
     """
     raw = (
         WEIGHTS["section"]   * section_score
-        + WEIGHTS["keyword"] * keyword_score
         + WEIGHTS["structure"] * structure_score
     )
     final = max(0.0, min(100.0, raw))
     logger.info(
-        "ATS Score: %.1f (section=%.1f, keyword=%.1f, structure=%.1f)",
-        final, section_score, keyword_score, structure_score
+        "ATS Score: %.1f (section=%.1f, structure=%.1f)",
+        final, section_score, structure_score
     )
     return round(final, 1)
 
@@ -438,7 +298,6 @@ def calculate_ats_score(
 def generate_ats_feedback(
     ats_score: float,
     section_result: dict,
-    keyword_result: dict,
     structure_result: dict,
 ) -> list[str]:
     """
@@ -462,32 +321,6 @@ def generate_ats_feedback(
             f"that include all standard sections much higher."
         )
 
-    # Priority 2: Keyword gaps (high impact)
-    density = keyword_result.get("keyword_density", 0)
-    unmatched = keyword_result.get("unmatched_keywords", [])
-    if density < 0.3:
-        suggestions.append(
-            f"🔴 Critical Keyword Gap: Only {density*100:.0f}% of JD keywords appear in your "
-            f"resume. Add these key terms naturally: "
-            + ", ".join(f"'{k}'" for k in unmatched[:8])
-            + ("..." if len(unmatched) > 8 else ".")
-        )
-    elif density < 0.5:
-        suggestions.append(
-            f"🟡 Improve Keyword Match: {density*100:.0f}% JD coverage detected. "
-            "Consider adding more relevant skills. Missing: "
-            + ", ".join(f"'{k}'" for k in unmatched[:5])
-            + ("..." if len(unmatched) > 5 else ".")
-        )
-    elif density < 0.7:
-        suggestions.append(
-            f"🟡 Good keyword match ({density*100:.0f}%). "
-            "A few more targeted additions could push you past ATS filters."
-        )
-    else:
-        suggestions.append(
-            f"✅ Excellent keyword alignment ({density*100:.0f}%). Your resume aligns well with the JD."
-        )
 
     # Priority 3: Structure issues
     if not structure_result.get("has_dates"):
@@ -574,24 +407,17 @@ def run_ats_analysis(parsed_json: dict, jd_text: str) -> dict:
             result["issues"] = ["Resume data is empty."]
             return result
 
-        # ── Step 1: Section Presence ─────────────────────────────────────
+        # ── Step 2: Section Presence ─────────────────────────────────────
         section_result = check_section_presence(parsed_json)
 
-        # ── Step 2: Keyword Extraction from JD ───────────────────────────
-        jd_keywords = extract_keywords_from_jd(jd_text) if jd_text else []
-
-        # ── Step 3: Keyword Density ───────────────────────────────────────
-        keyword_result = compute_keyword_density(parsed_json, jd_keywords)
-
-        # ── Step 4: Experience Structure ──────────────────────────────────
+        # ── Step 3: Experience Structure ──────────────────────────────────
         structure_result = validate_experience_structure(
             parsed_json.get("experience", "")
         )
 
-        # ── Step 5: Weighted ATS Score ────────────────────────────────────
+        # ── Step 4: Weighted ATS Score ────────────────────────────────────
         ats_score = calculate_ats_score(
             section_result["section_score"],
-            keyword_result["keyword_score"],
             structure_result["structure_score"],
         )
 
@@ -608,11 +434,10 @@ def run_ats_analysis(parsed_json: dict, jd_text: str) -> dict:
         # ── Step 7: Feedback Generation ───────────────────────────────────
         all_issues = (
             section_result["issues"]
-            + keyword_result.get("issues", [])
             + structure_result["issues"]
         )
         suggestions = generate_ats_feedback(
-            ats_score, section_result, keyword_result, structure_result
+            ats_score, section_result, structure_result
         )
 
         result.update({
@@ -621,14 +446,9 @@ def run_ats_analysis(parsed_json: dict, jd_text: str) -> dict:
             "grade":     grade,
             "formatting_checklist": {
                 "sections_present": section_result["sections_present"],
-                "keyword_density":  keyword_result["keyword_density"],
                 "structure_valid":  structure_result["structure_type"] == "chronological",
             },
-            "matched_keywords":   keyword_result["matched_keywords"],
-            "unmatched_keywords": keyword_result["unmatched_keywords"],
-            "total_jd_keywords":  keyword_result["total_jd_keywords"],
             "section_score":      round(section_result["section_score"], 1),
-            "keyword_score":      round(keyword_result["keyword_score"], 1),
             "structure_score":    round(structure_result["structure_score"], 1),
             "structure_type":     structure_result["structure_type"],
             "has_dates":          structure_result["has_dates"],

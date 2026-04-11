@@ -1,0 +1,50 @@
+# HireMind AI - Project Dependencies
+# ----------------------------------------------------
+# Install with: pip install -r requirements.txt
+# For spaCy model: python -m spacy download en_core_web_md
+
+# Core UI & Framework
+streamlit==1.56.0
+python-dotenv==1.0.0
+click==8.1.8
+typer==0.12.5
+
+
+# Text Extraction & Processing
+PyPDF2>=3.0.0
+pdfminer.six>=20221105
+python-docx>=1.1.0
+spacy==3.7.4
+langchain-text-splitters>=0.0.1
+
+# AI & Machine Learning
+google-genai>=0.2.0
+openai>=1.10.0
+sentence-transformers>=2.2.0
+numpy>=1.24.0
+
+# Vector Search (Semantic Matching)
+faiss-cpu>=1.7.4
+
+# Identity Verification & Image Processing
+Pillow>=10.0.0
+face-recognition>=1.3.0
+dlib>=19.24.0
+
+# Networking & Communication
+requests>=2.31.0
+resend>=0.5.0
+
+# Fuzzy String Matching (Interview Evaluation)
+rapidfuzz>=3.5.0
+
+# Webcam Monitoring & Face Detection (Interview Proctoring)
+streamlit-webrtc>=0.47.0
+av>=10.0.0
+mediapipe==0.10.9
+protobuf<4,>=3.20.1
+opencv-python>=4.8.0
+
+# Stage 2: Voice Interview
+gTTS>=2.4.0
+assemblyai>=0.59.0

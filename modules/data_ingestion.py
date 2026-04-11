@@ -22,6 +22,11 @@ from pdfminer.high_level import extract_text as pdfminer_extract
 # --- DOCX Extraction ---
 from docx import Document
 
+# --- Image / Photo Processing ---
+from PIL import Image
+import io
+import base64
+
 # --- Logging Setup ---
 logging.basicConfig(
     level=logging.INFO,
@@ -98,6 +103,53 @@ def _extract_pdf_ocr_placeholder(file_path: Path) -> str:
         "OCR fallback triggered for '%s'. Tesseract not yet implemented.", file_path.name
     )
     return ""
+
+
+def _extract_images_from_pdf(file_path: Path) -> bytes:
+    """
+    Extracts the most likely profile photo from Page 1 of the PDF.
+    Picks the largest image if multiple are found.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            if not reader.pages:
+                return None
+            
+            page = reader.pages[0]  # Focus on first page for profile photo
+            if '/Resources' not in page or '/XObject' not in page['/Resources']:
+                return None
+            
+            xObject = page['/Resources']['/XObject'].get_object()
+            largest_img_bytes = None
+            max_size = 0
+            
+            for obj in xObject:
+                if xObject[obj]['/Subtype'] == '/Image':
+                    # Simplified metadata check
+                    width = xObject[obj].get('/Width', 0)
+                    height = xObject[obj].get('/Height', 0)
+                    size = width * height
+                    
+                    # Heuristic: Find the largest image on page 1
+                    if size > max_size:
+                        data = xObject[obj].get_data()
+                        # Verify we can actually open it as an image
+                        try:
+                            img = Image.open(io.BytesIO(data))
+                            # Convert to consistent RGB format
+                            img = img.convert("RGB")
+                            buffered = io.BytesIO()
+                            img.save(buffered, format="JPEG")
+                            largest_img_bytes = buffered.getvalue()
+                            max_size = size
+                        except:
+                            continue
+            
+            return largest_img_bytes
+    except Exception as e:
+        logger.error("Image extraction failed for '%s': %s", file_path.name, e)
+        return None
 
 
 # ── 2b. extract_text ──────────────────────────────────────────────────────────
@@ -298,8 +350,11 @@ def process_resume(uploaded_file) -> dict:
         raw_path = save_uploaded_file(uploaded_file)
         result["raw_path"] = raw_path
 
-        # Step 2 — Extract text
+        # Step 2 — Extract text and images
         raw_text = extract_text(raw_path)
+        profile_photo_bytes = None
+        if raw_path.suffix.lower() == ".pdf":
+            profile_photo_bytes = _extract_images_from_pdf(raw_path)
         if not raw_text.strip():
             result["message"] = (
                 "⚠️ No text could be extracted. "
@@ -320,6 +375,7 @@ def process_resume(uploaded_file) -> dict:
             "cleaned_text"   : cleaned_text,
             "char_count"     : len(cleaned_text),
             "word_count"     : len(cleaned_text.split()),
+            "profile_photo"  : base64.b64encode(profile_photo_bytes).decode("utf-8") if profile_photo_bytes else None,
             "message"        : "Resume uploaded and processed successfully ✅",
         })
 

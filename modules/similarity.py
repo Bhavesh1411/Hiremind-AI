@@ -222,8 +222,30 @@ def aggregate_by_candidate(search_results: list[dict]) -> dict:
         mean_score = sum(scores) / len(scores)
         combined   = 0.6 * max_score + 0.4 * mean_score
 
-        # Keep the top 3 chunks for context
-        top_chunks = sorted(chunks, key=lambda x: x["score"], reverse=True)[:3]
+        # Deduplication + Threshold Selection
+        # 1. Sort by score descending
+        sorted_chunks = sorted(chunks, key=lambda x: x["score"], reverse=True)
+        
+        unique_chunks = []
+        seen_content_hashes = set()
+        
+        for c in sorted_chunks:
+            # Apply dynamic threshold: only show meaningful matches
+            if c["score"] < 0.40:
+                continue
+                
+            # Content deduplication: use a simplified normalisation to detect near-duplicates
+            # (common with overlapping chunks)
+            content_norm = re.sub(r"[^a-zA-Z0-9]", "", c["chunk_text"].lower())[:150]
+            if content_norm in seen_content_hashes:
+                continue
+                
+            seen_content_hashes.add(content_norm)
+            unique_chunks.append(c)
+            
+            # Optional: limit to top 10 to keep dashboard readable, but remove hardcoded 3
+            if len(unique_chunks) >= 10:
+                break
 
         aggregated[name] = {
             "max_score":        round(max_score, 4),
@@ -231,7 +253,7 @@ def aggregate_by_candidate(search_results: list[dict]) -> dict:
             "combined_score":   round(combined, 4),
             "matched_sections": sections,
             "num_chunks_hit":   len(chunks),
-            "top_chunks":       top_chunks,
+            "top_chunks":       unique_chunks,
         }
 
     logger.info("Aggregated results for %d candidates.", len(aggregated))
