@@ -104,9 +104,9 @@ Your task is to perform a DEEP, THOROUGH analysis comparing a candidate's resume
    - Remote → look for self-discipline, async communication
 
 6. RECOMMENDATIONS:
-   - Provide 3-5 specific, actionable recommendations
-   - Include learning resources or certifications if relevant
-   - Suggest interview questions that probe identified gaps
+   - Provide 2-3 specific, actionable recommendations based ONLY on identified gaps.
+   - DO NOT suggest random courses, websites, or unrelated certifications.
+   - Suggest interview questions that probe identified gaps.
 
 --- RESUME ---
 {resume_text}
@@ -136,9 +136,8 @@ Use this exact schema:
     "soft_skills_analysis": "<paragraph analyzing leadership, communication, teamwork, problem-solving with EVIDENCE from resume>",
     "cultural_fit": "<paragraph analyzing cultural alignment based on JD context>",
     "recommendations": [
-        "<recommendation 1>",
-        "<recommendation 2>",
-        "<recommendation 3>"
+        "<recommendation 1 - MUST BE SPECIFIC TO JD GAP>",
+        "<recommendation 2 - MUST BE SPECIFIC TO JD GAP>"
     ],
     "interview_questions": [
         "<suggested question 1 targeting a gap>",
@@ -191,13 +190,21 @@ def call_llm(
         raise ValueError(f"Unsupported LLM provider: '{provider}'. Use 'gemini' or 'openai'.")
 
 
+import streamlit as st
+
+@st.cache_resource
+def get_gemini_client(api_key: str):
+    """Initializes and caches the Google GenAI client."""
+    from google import genai
+    logger.info("Initializing Gemini GenAI client...")
+    return genai.Client(api_key=api_key)
+
 def _call_gemini(prompt: str, api_key: str, model: str) -> str:
     """Calls Google Gemini API using the new google.genai SDK with basic retry logic."""
-    from google import genai
     from google.genai import types
     import time
 
-    client = genai.Client(api_key=api_key)
+    client = get_gemini_client(api_key)
 
     config = types.GenerateContentConfig(
         temperature=0.3,
@@ -251,11 +258,16 @@ def _call_gemini(prompt: str, api_key: str, model: str) -> str:
     raise RuntimeError(f"Gemini API Error: {last_err}")
 
 
+@st.cache_resource
+def get_openai_client(api_key: str):
+    """Initializes and caches the OpenAI client."""
+    from openai import OpenAI
+    logger.info("Initializing OpenAI client...")
+    return OpenAI(api_key=api_key)
+
 def _call_openai(prompt: str, api_key: str, model: str) -> str:
     """Calls OpenAI API."""
-    from openai import OpenAI
-
-    client = OpenAI(api_key=api_key)
+    client = get_openai_client(api_key)
 
     logger.info("Calling OpenAI model: %s", model)
     response = client.chat.completions.create(

@@ -23,6 +23,16 @@ from modules.interview_ui import render_mode_selection, render_interview_ui
 from modules.voice_ui import render_voice_interview, render_combined_report
 from modules.auth_db import init_auth_db
 from modules.auth_ui import render_role_selection, render_login_page, render_candidate_dashboard, render_admin_dashboard
+from modules.webcam_monitor import (
+    IdentityCaptureProcessor,
+    _WEBRTC_AVAILABLE as _ID_WEBRTC_OK,
+    _CV2_AVAILABLE   as _ID_CV2_OK,
+)
+try:
+    from streamlit_webrtc import webrtc_streamer as _id_webrtc_streamer, WebRtcMode as _IdWebRtcMode
+except Exception:
+    _id_webrtc_streamer = None
+    _IdWebRtcMode       = None
 import time
 
 # Load environment variables from .env file
@@ -187,42 +197,44 @@ def display_input_workspace():
             )
 
             if resume_file:
-                # Only re-process if the file changes
-                last_name = st.session_state.get("last_resume_name")
-                if last_name != resume_file.name:
-                    with st.spinner("⚙️ Extracting and processing resume..."):
-                        result = process_resume(resume_file)
-                    st.session_state["resume_result"]    = result
-                    st.session_state["last_resume_name"] = resume_file.name
-
-                    # --- Text Processing: Parse into structured JSON ---
-                    if result.get("status") == "success":
-                        with st.spinner("🧠 Parsing resume with NLP..."):
-                            parsed = build_structured_json(
-                                result["cleaned_text"], 
-                                profile_photo=result.get("profile_photo")
-                            )
-                        st.session_state["parsed_resume"] = parsed
-
-                        # --- Embeddings: Generate & store vectors ---
-                        with st.spinner("🔢 Generating vector embeddings..."):
-                            emb_result = process_embeddings(parsed, source_label="resume")
-                        st.session_state["embedding_result"] = emb_result
-
-                result = st.session_state.get("resume_result", {})
-
-                if result.get("status") == "success":
-                    st.success(result["message"])
-                    col_a, col_b = st.columns(2)
-                    col_a.metric("📝 Word Count",  f"{result['word_count']:,}")
-                    col_b.metric("🔢 Char Count",  f"{result['char_count']:,}")
-
-                    with st.expander("📄 Preview Extracted Text (first 1000 chars)"):
-                        st.code(result["cleaned_text"][:1000], language=None)
-
-                    st.caption(f"📁 Saved to: `{result['raw_path'].name}`")
+                # REQUIREMENT: Enforce 5MB limit
+                if resume_file.size > 5 * 1024 * 1024:
+                    st.error("File size exceeds the allowed limit (5MB). Please upload a smaller resume.")
                 else:
-                    st.warning(result.get("message", "Processing failed."))
+                    # Helper to clear stale analysis data on new upload
+                    def clear_stale_results():
+                        for key in ["match_result", "llm_result", "ats_result", "fraud_result", "rec_result", "stage_1_complete", "verification_complete", "embedding_result"]:
+                            if key in st.session_state: st.session_state[key] = None
+                    
+                    if st.session_state.get("last_resume_name") != resume_file.name:
+                        clear_stale_results()
+                        with st.spinner("⚙️ Extracting and processing resume..."):
+                            result = process_resume(resume_file)
+                        st.session_state["resume_result"]    = result
+                        st.session_state["last_resume_name"] = resume_file.name
+
+                        if result.get("status") == "success":
+                            with st.spinner("🧠 Parsing resume with NLP..."):
+                                parsed = build_structured_json(result["cleaned_text"], profile_photo=result.get("profile_photo"))
+                            st.session_state["parsed_resume"] = parsed
+                            with st.spinner("🔢 Generating vector embeddings..."):
+                                emb_result = process_embeddings(parsed, source_label="resume")
+                            st.session_state["embedding_result"] = emb_result
+
+                    result = st.session_state.get("resume_result", {})
+
+                    if result.get("status") == "success":
+                        st.success(result["message"])
+                        col_a, col_b = st.columns(2)
+                        col_a.metric("📝 Word Count",  f"{result['word_count']:,}")
+                        col_b.metric("🔢 Char Count",  f"{result['char_count']:,}")
+
+                        with st.expander("📄 Preview Extracted Text (first 1000 chars)"):
+                            st.code(result["cleaned_text"][:1000], language=None)
+
+                        st.caption(f"📁 Saved to: `{result['raw_path'].name}`")
+                    else:
+                        st.warning(result.get("message", "Processing failed."))
 
         # --- Parsed Resume Display (STRUCTURED) ---
         parsed = st.session_state.get("parsed_resume")
@@ -327,19 +339,23 @@ def display_input_workspace():
                 else:
                     jd_file = st.file_uploader("Load JD Source", type=["pdf", "docx"], key="jd_file_upload")
                     if jd_file:
-                        # Quick extract for JD files (reuse ingestion helpers)
-                        from modules.data_ingestion import extract_text, clean_text
-                        from pathlib import Path
-                        import tempfile, os
-                        tmp_path = Path("data") / "jd_temp" / jd_file.name
-                        tmp_path.parent.mkdir(parents=True, exist_ok=True)
-                        tmp_path.write_bytes(jd_file.getbuffer())
-                        raw = extract_text(tmp_path)
-                        jd_text_extracted = clean_text(raw)
-                        st.session_state["jd_text"] = jd_text_extracted
-                        st.success(f"✅ JD loaded: {jd_file.name}")
-                        with st.expander("📄 JD Preview"):
-                            st.text(jd_text_extracted[:800])
+                        # REQUIREMENT: Enforce 5MB limit
+                        if jd_file.size > 5 * 1024 * 1024:
+                            st.error("File size exceeds the allowed limit (5MB). Please upload a smaller Job Description.")
+                        else:
+                            # Quick extract for JD files (reuse ingestion helpers)
+                            from modules.data_ingestion import extract_text, clean_text
+                            from pathlib import Path
+                            import tempfile, os
+                            tmp_path = Path("data") / "jd_temp" / jd_file.name
+                            tmp_path.parent.mkdir(parents=True, exist_ok=True)
+                            tmp_path.write_bytes(jd_file.getbuffer())
+                            raw = extract_text(tmp_path)
+                            jd_text_extracted = clean_text(raw)
+                            st.session_state["jd_text"] = jd_text_extracted
+                            st.success(f"✅ JD loaded: {jd_file.name}")
+                            with st.expander("📄 JD Preview"):
+                                st.text(jd_text_extracted[:800])
 
 # ── ELIGIBILITY & INTERVIEW LOGIC ──────────────────────────────────────────────
 def check_interview_eligibility():
@@ -436,60 +452,182 @@ def validate_user_inputs(name: str, email: str, phone: str):
 
 def validate_webcam_image(image_file):
     """
-    Basic image-quality heuristics using PIL.
+    Comprehensive image-quality and face-detection validation engine.
 
-    Checks
-    ------
-    1. Average brightness  — flags very dark images.
-    2. Edge-variance       — flags blurry images.
-    3. Centre-region variance — heuristic for face presence.
+    Checks (in order of increasing cost):
+    ─────────────────────────────────────
+    1. Brightness — luminance-channel mean  (PIL, no external deps)
+    2. Blur       — variance of Laplacian   (cv2 preferred; PIL fallback)
+    3. Face count — MediaPipe FaceDetection (cv2 required)
+    4. Face align — face bounding-box size / centredness heuristic
 
     Returns
     -------
-    (is_valid: bool, warnings: list[str])
+    (is_valid : bool, report : dict)
+        report keys:
+            • "passed"   : bool
+            • "warnings" : list[str]   — human-readable failure reasons
+            • "metrics"  : dict        — numeric values for each check
+            • "face_count": int | None
     """
-    warnings_out = []
+    report = {
+        "passed":     False,
+        "warnings":   [],
+        "metrics":    {},
+        "face_count": None,
+    }
+
+    # ── 0. Load image ────────────────────────────────────────────────────────
     try:
-        img      = Image.open(image_file).convert("RGB")
-        img_gray = img.convert("L")
+        img_pil  = Image.open(image_file).convert("RGB")
+        img_gray = img_pil.convert("L")
         pixels   = list(img_gray.getdata())
-
-        # 1. Brightness check
-        avg_brightness = sum(pixels) / len(pixels)
-        if avg_brightness < 55:
-            warnings_out.append(
-                "⚠️ Low lighting detected — please sit in a brighter environment."
-            )
-            return False, warnings_out
-
-        # 2. Sharpness via edge-detection variance
-        edge_pixels = list(img_gray.filter(ImageFilter.FIND_EDGES).getdata())
-        mean_e      = sum(edge_pixels) / len(edge_pixels)
-        variance    = sum((p - mean_e) ** 2 for p in edge_pixels) / len(edge_pixels)
-        if variance < 80:
-            warnings_out.append(
-                "⚠️ Image appears blurry — please hold still and ensure good focus."
-            )
-            return False, warnings_out
-
-        # 3. Centre-region activity heuristic (face presence)
-        w, h         = img.size
-        center_crop  = img_gray.crop((w // 4, h // 4, 3 * w // 4, 3 * h // 4))
-        c_pixels     = list(center_crop.getdata())
-        c_mean       = sum(c_pixels) / len(c_pixels)
-        c_variance   = sum((p - c_mean) ** 2 for p in c_pixels) / len(c_pixels)
-        if c_variance < 60:
-            warnings_out.append(
-                "⚠️ No face detected in the centre frame — "
-                "please position your face in the middle of the camera view."
-            )
-            return False, warnings_out
-
-        return True, []
-
+        w_pil, h_pil = img_pil.size
     except Exception as exc:
-        warnings_out.append(f"❌ Could not analyse image: {exc}")
-        return False, warnings_out
+        report["warnings"].append(f"❌ Could not open image: {exc}")
+        return False, report
+
+    # ── 1. BRIGHTNESS CHECK (luminance mean, threshold: 50–235) ─────────────
+    avg_brightness = sum(pixels) / len(pixels)
+    report["metrics"]["brightness"] = round(avg_brightness, 1)
+
+    BRIGHTNESS_MIN = 50    # Below this → too dark
+    BRIGHTNESS_MAX = 235   # Above this → over-exposed
+
+    if avg_brightness < BRIGHTNESS_MIN:
+        report["warnings"].append(
+            "🌑 Low lighting detected — please sit in a well-lit room."
+        )
+        return False, report
+
+    if avg_brightness > BRIGHTNESS_MAX:
+        report["warnings"].append(
+            "☀️ Image is over-exposed — reduce direct glare or backlighting."
+        )
+        return False, report
+
+    # ── 2. BLUR CHECK (variance of Laplacian) ───────────────────────────────
+    # NOTE: st.camera_input outputs browser-JPEG-compressed frames.
+    # JPEG compression smooths edges and dramatically reduces Laplacian variance.
+    # A perfectly sharp webcam photo typically scores 15-50 (vs 200+ for RAW).
+    # Threshold is calibrated for compressed webcam output, not raw images.
+    BLUR_THRESHOLD = 12.0   # Anything below 12 is genuinely blurry/out-of-focus
+
+    try:
+        import cv2
+        import numpy as np
+        img_np   = np.array(img_pil)
+        gray_np  = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+        lap_var  = float(cv2.Laplacian(gray_np, cv2.CV_64F).var())
+        report["metrics"]["blur_score"] = round(lap_var, 2)
+        _cv2_ok  = True
+    except ImportError:
+        # PIL-based edge-variance fallback
+        edge_pix = list(img_gray.filter(ImageFilter.FIND_EDGES).getdata())
+        e_mean   = sum(edge_pix) / len(edge_pix)
+        lap_var  = sum((p - e_mean) ** 2 for p in edge_pix) / len(edge_pix)
+        report["metrics"]["blur_score"] = round(lap_var, 2)
+        _cv2_ok  = False
+
+    if lap_var < BLUR_THRESHOLD:
+        report["warnings"].append(
+            "🔆 Image is too blurry — hold still and ensure the camera is focused."
+        )
+        return False, report
+
+    # ── 3. FACE COUNT & VISIBILITY (MediaPipe) ───────────────────────────────
+    # Requires cv2 + mediapipe. If unavailable, use PIL centre-variance fallback.
+    face_count   = None
+    face_bbox    = None   # (x1, y1, x2, y2) in pixel coords
+
+    try:
+        import cv2
+        import mediapipe as mp
+        import numpy as np
+
+        mp_fd    = mp.solutions.face_detection
+        detector = mp_fd.FaceDetection(model_selection=0, min_detection_confidence=0.5)
+        rgb_np   = np.array(img_pil)
+        results  = detector.process(rgb_np)
+        detector.close()
+
+        face_count = len(results.detections) if results.detections else 0
+        report["metrics"]["face_count"] = face_count
+        report["face_count"] = face_count
+
+        # ── Rule: exactly 1 face required ───────────────────────────────────
+        if face_count == 0:
+            report["warnings"].append(
+                "😶 No face detected — please centre your face in the frame."
+            )
+            return False, report
+
+        if face_count > 1:
+            report["warnings"].append(
+                f"👥 Only one person should be visible in the frame "
+                f"({face_count} faces detected)."
+            )
+            return False, report
+
+        # ── Rule: face must be large enough (≥ 10 % of frame area) ──────────
+        if results.detections:
+            det  = results.detections[0]
+            bbox = det.location_data.relative_bounding_box
+            h_img, w_img = rgb_np.shape[:2]
+
+            x1 = int(bbox.xmin * w_img)
+            y1 = int(bbox.ymin * h_img)
+            x2 = int((bbox.xmin + bbox.width)  * w_img)
+            y2 = int((bbox.ymin + bbox.height) * h_img)
+
+            face_area_pct = (bbox.width * bbox.height) * 100
+            report["metrics"]["face_area_pct"] = round(face_area_pct, 1)
+            face_bbox = (x1, y1, x2, y2)
+
+            if face_area_pct < 4.0:
+                report["warnings"].append(
+                    "🔍 Face not properly aligned — move closer to the camera."
+                )
+                return False, report
+
+            # ── Rule: face must be roughly centred (< 45 % offset from centre) ──
+            face_cx_rel = bbox.xmin + bbox.width  / 2
+            face_cy_rel = bbox.ymin + bbox.height / 2
+            offset_x    = abs(face_cx_rel - 0.5)
+            offset_y    = abs(face_cy_rel - 0.5)
+            report["metrics"]["face_offset_x"] = round(offset_x, 3)
+            report["metrics"]["face_offset_y"] = round(offset_y, 3)
+
+            if offset_x > 0.35 or offset_y > 0.35:
+                report["warnings"].append(
+                    "📐 Face not properly aligned — please centre your face "
+                    "within the guide oval."
+                )
+                return False, report
+
+    except (ImportError, AttributeError):
+        # MediaPipe / cv2 unavailable — PIL centre-variance fallback
+        cw, ch = w_pil // 2, h_pil // 2
+        half_w, half_h = w_pil // 4, h_pil // 4
+        centre_crop = img_gray.crop(
+            (cw - half_w, ch - half_h, cw + half_w, ch + half_h)
+        )
+        c_pix    = list(centre_crop.getdata())
+        c_mean   = sum(c_pix) / len(c_pix)
+        c_var    = sum((p - c_mean) ** 2 for p in c_pix) / len(c_pix)
+        report["metrics"]["centre_variance"] = round(c_var, 1)
+
+        if c_var < 60:
+            report["warnings"].append(
+                "😶 No face detected in the centre frame — please centre your "
+                "face in the guide oval."
+            )
+            return False, report
+
+    # ── 4. ALL CHECKS PASSED ─────────────────────────────────────────────────
+    report["passed"] = True
+    return True, report
+
 
 
 def proceed_to_interview():
@@ -705,42 +843,243 @@ def render_verification_page():
         # ── STEP 2 — Live Webcam Photo (getUserMedia via st.camera_input) ─────
         st.markdown("#### 📸 Step 2 — Live Photo Capture (Mandatory)")
         with st.container(border=True):
+
+            # ── Photo Requirements & CSS ──────────────────────────────────────
             st.markdown("""
-                <div style="background:#eff6ff;border-left:4px solid #2563eb;
-                            border-radius:0 10px 10px 0;padding:1rem 1.2rem;
-                            margin-bottom:1rem;">
-                    <strong>📋 Photo Guidelines</strong>
-                    <ul style="margin:0.6rem 0 0;padding-left:1.2rem;color:#334155;
-                               line-height:1.8;">
-                        <li>Sit in a <strong>well-lit room</strong> — avoid backlighting</li>
-                        <li>Keep your <strong>face clearly visible</strong> and centred in the frame</li>
-                        <li>Avoid <strong>blurry or dark</strong> captures — hold still</li>
-                        <li>Only <strong>live webcam photos</strong> are accepted — file uploads are not allowed</li>
-                    </ul>
+                <style>
+                    .photo-guide-box {
+                        background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+                        border: 1.5px solid #bfdbfe;
+                        border-radius: 14px;
+                        padding: 1.2rem;
+                        margin-bottom: 1rem;
+                    }
+                    .guide-grid {
+                        display: flex;
+                        gap: 0.6rem;
+                        flex-wrap: wrap;
+                        margin-top: 0.7rem;
+                    }
+                    .guide-chip {
+                        background: #fff;
+                        border: 1px solid #93c5fd;
+                        border-radius: 20px;
+                        padding: 4px 12px;
+                        font-size: 0.82rem;
+                        color: #1e40af;
+                        font-weight: 600;
+                    }
+                    .val-row {
+                        display: flex; align-items: center;
+                        gap: 0.5rem; margin-bottom: 0.35rem;
+                        font-size: 0.88rem; font-weight: 600;
+                    }
+                    .val-pass { color: #16a34a; }
+                    .val-fail { color: #dc2626; }
+                    .val-pending { color: #9ca3af; }
+                </style>
+                <div class="photo-guide-box">
+                    <strong>📋 Photo Requirements</strong>
+                    <div class="guide-grid">
+                        <span class="guide-chip">💡 Well-lit room</span>
+                        <span class="guide-chip">👤 Single person only</span>
+                        <span class="guide-chip">🎯 Face centred</span>
+                        <span class="guide-chip">🔍 Sharp &amp; clear</span>
+                        <span class="guide-chip">🚫 No backlighting</span>
+                        <span class="guide-chip">📐 Full face visible</span>
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
 
-            photo = st.camera_input(
-                "Click the button below to activate your webcam and capture a photo",
-                key="verif_camera",
-                help="Your device webcam will open via getUserMedia. Frame your face and click \u2018Take Photo\u2019.",
+            # ── STEP 2: Live webcam with OpenCV overlay or fallback camera_input ──
+            # ── Face Alignment Guide + Live Webcam (OpenCV overlay via WebRTC) ──
+            _use_webrtc_capture = (
+                _ID_WEBRTC_OK and _ID_CV2_OK
+                and _id_webrtc_streamer is not None
+                and _IdWebRtcMode is not None
             )
 
-            if photo:
-                col_preview, col_status = st.columns([1, 1])
-                with col_preview:
-                    st.image(photo, caption="Captured photo preview", use_container_width=True)
-                with col_status:
-                    valid_img, img_warnings = validate_webcam_image(photo)
-                    if valid_img:
-                        st.success("✅ Photo quality check passed!\nImage is clear and well-lit.")
-                    else:
-                        for w in img_warnings:
-                            st.warning(w)
-                        st.info(
-                            "💡 Please retake the photo by clicking **'Clear photo'** above, "
-                            "then try again."
-                        )
+            if _use_webrtc_capture:
+                st.markdown(
+                    """
+                    <div style='background:#eff6ff;border-left:4px solid #3b82f6;
+                                border-radius:0 10px 10px 0;padding:0.8rem 1rem;
+                                margin-bottom:0.8rem;font-size:0.88rem;color:#1e3a8a;'>
+                        <strong>📹 Live Camera</strong> — the oval &amp; grid guide are drawn
+                        directly on the feed in real time. Centre your face, then click
+                        <strong>📸 Capture Photo</strong>.
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                ctx = _id_webrtc_streamer(
+                    key="identity_capture",
+                    mode=_IdWebRtcMode.SENDRECV,
+                    video_processor_factory=IdentityCaptureProcessor,
+                    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+                    media_stream_constraints={
+                        "video": {"width": {"ideal": 640}, "height": {"ideal": 480}, "frameRate": {"ideal": 20}},
+                        "audio": False,
+                    },
+                    async_processing=True,
+                    desired_playing_state=True,
+                )
+
+                cap_col, ret_col = st.columns([1, 1])
+                with cap_col:
+                    if st.button("📸 Capture Photo", use_container_width=True, type="primary",
+                                 key="id_capture_btn"):
+                        if ctx.video_processor:
+                            frame_bytes = ctx.video_processor.get_latest_frame_bytes()
+                            if frame_bytes:
+                                st.session_state["captured_id_photo"] = frame_bytes
+                                st.success("Photo captured! Check validation below.")
+                                st.rerun()
+                            else:
+                                st.warning("Camera not ready yet — wait a moment and try again.")
+                        else:
+                            st.warning("Please allow camera access and wait for the feed to start.")
+
+                with ret_col:
+                    if st.session_state.get("captured_id_photo") and st.button(
+                        "🔄 Retake", use_container_width=True, key="id_retake_btn"
+                    ):
+                        del st.session_state["captured_id_photo"]
+                        st.rerun()
+
+                # ── Show captured frame + validation ─────────────────────────
+                raw_bytes = st.session_state.get("captured_id_photo")
+                if raw_bytes:
+                    photo_io = io.BytesIO(raw_bytes)
+                    col_preview, col_status = st.columns([1, 1])
+                    with col_preview:
+                        st.image(photo_io, caption="Captured photo", use_container_width=True)
+                    with col_status:
+                        photo_io.seek(0)
+                        valid_img, val_report = validate_webcam_image(photo_io)
+                        metrics      = val_report.get("metrics", {})
+                        warnings_list = val_report.get("warnings", [])
+
+                        def _check_row(label, passed, pending=False):
+                            if pending:
+                                icon, cls = "⬜", "val-pending"
+                            elif passed:
+                                icon, cls = "✅", "val-pass"
+                            else:
+                                icon, cls = "❌", "val-fail"
+                            st.markdown(
+                                f'<div class="val-row {cls}">{icon} {label}</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                        st.markdown("**🔎 Validation Checks**")
+                        brt = metrics.get("brightness")
+                        _check_row(f"Lighting ({brt:.0f}/255)" if brt else "Lighting",
+                                   brt is not None and 50 <= brt <= 235)
+                        blur = metrics.get("blur_score")
+                        _check_row(f"Sharpness ({blur:.0f})" if blur else "Sharpness",
+                                   blur is not None and blur >= 12)
+                        fc = val_report.get("face_count")
+                        face_ran = (fc is not None) or ("centre_variance" in metrics)
+                        if not face_ran:
+                            _check_row("Face detection", False, pending=True)
+                        elif fc is None:
+                            _check_row("Face detected", metrics.get("centre_variance", 0) >= 60)
+                        else:
+                            _check_row(f"Single face ({fc} detected)", fc == 1)
+                        fa = metrics.get("face_area_pct")
+                        if fa is not None:
+                            _check_row(f"Face size ({fa:.1f}%)", fa >= 4.0)
+                        ox, oy = metrics.get("face_offset_x"), metrics.get("face_offset_y")
+                        if ox is not None and oy is not None:
+                            _check_row("Face centred", ox <= 0.35 and oy <= 0.35)
+
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if valid_img:
+                            st.success("✅ **All checks passed!** You may proceed.")
+                        else:
+                            for w in warnings_list:
+                                st.error(w)
+                            st.warning("💡 Click **Retake** above and try again.")
+
+            else:
+                # ── Fallback: st.camera_input (no real-time overlay) ─────────
+                st.info("ℹ️ Live overlay requires opencv-python + streamlit-webrtc. Using standard camera.")
+                st.markdown("""
+                    <div style="border:2px dashed #93c5fd;border-radius:14px;padding:0.4rem;
+                                margin-bottom:0.8rem;background:#f8faff;text-align:center;">
+                        <svg width="280" height="180" viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg"
+                             style="display:block;margin:auto;">
+                            <line x1="93" y1="0" x2="93" y2="180" stroke="#bfdbfe" stroke-width="0.8" stroke-dasharray="4,4"/>
+                            <line x1="187" y1="0" x2="187" y2="180" stroke="#bfdbfe" stroke-width="0.8" stroke-dasharray="4,4"/>
+                            <line x1="0" y1="60" x2="280" y2="60" stroke="#bfdbfe" stroke-width="0.8" stroke-dasharray="4,4"/>
+                            <line x1="0" y1="120" x2="280" y2="120" stroke="#bfdbfe" stroke-width="0.8" stroke-dasharray="4,4"/>
+                            <ellipse cx="140" cy="88" rx="60" ry="72" fill="none" stroke="#3b82f6"
+                                     stroke-width="2.5" stroke-dasharray="8,4" opacity="0.75"/>
+                            <text x="140" y="170" text-anchor="middle"
+                                  font-family="Inter,sans-serif" font-size="11" fill="#60a5fa" font-weight="600">
+                                Align face within oval
+                            </text>
+                        </svg>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                photo = st.camera_input(
+                    "Activate webcam → align face → click Take Photo",
+                    key="verif_camera",
+                )
+
+                if photo:
+                    col_preview, col_status = st.columns([1, 1])
+                    with col_preview:
+                        st.image(photo, caption="Captured photo", use_container_width=True)
+                    with col_status:
+                        valid_img, val_report = validate_webcam_image(photo)
+                        metrics       = val_report.get("metrics", {})
+                        warnings_list = val_report.get("warnings", [])
+
+                        def _check_row(label, passed, pending=False):
+                            if pending:
+                                icon, cls = "⬜", "val-pending"
+                            elif passed:
+                                icon, cls = "✅", "val-pass"
+                            else:
+                                icon, cls = "❌", "val-fail"
+                            st.markdown(
+                                f'<div class="val-row {cls}">{icon} {label}</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                        st.markdown("**🔎 Validation Checks**")
+                        brt = metrics.get("brightness")
+                        _check_row(f"Lighting ({brt:.0f}/255)" if brt else "Lighting",
+                                   brt is not None and 50 <= brt <= 235)
+                        blur = metrics.get("blur_score")
+                        _check_row(f"Sharpness ({blur:.0f})" if blur else "Sharpness",
+                                   blur is not None and blur >= 12)
+                        fc = val_report.get("face_count")
+                        face_ran = (fc is not None) or ("centre_variance" in metrics)
+                        if not face_ran:
+                            _check_row("Face detection", False, pending=True)
+                        elif fc is None:
+                            _check_row("Face detected", metrics.get("centre_variance", 0) >= 60)
+                        else:
+                            _check_row(f"Single face ({fc} detected)", fc == 1)
+                        fa = metrics.get("face_area_pct")
+                        if fa is not None:
+                            _check_row(f"Face size ({fa:.1f}%)", fa >= 4.0)
+                        ox, oy = metrics.get("face_offset_x"), metrics.get("face_offset_y")
+                        if ox is not None and oy is not None:
+                            _check_row("Face centred", ox <= 0.35 and oy <= 0.35)
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if valid_img:
+                            st.success("✅ **All checks passed!** You may proceed.")
+                        else:
+                            for w in warnings_list:
+                                st.error(w)
+                            st.warning("💡 Clear photo above and try again.")
+
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -754,11 +1093,34 @@ def render_verification_page():
             name_val   = st.session_state.get("verif_name",  "").strip()
             email_val  = st.session_state.get("verif_email", "").strip()
             phone_val  = st.session_state.get("verif_phone", "").strip()
-            photo_file = st.session_state.get("verif_camera")
+
+            # Resolve photo source: webrtc capture takes priority over camera_input
+            _raw_photo_bytes = st.session_state.get("captured_id_photo")
+            _camera_input    = st.session_state.get("verif_camera")
+            if _raw_photo_bytes:
+                photo_file      = io.BytesIO(_raw_photo_bytes)
+                photo_get_value = _raw_photo_bytes
+            elif _camera_input:
+                photo_file      = _camera_input
+                photo_get_value = _camera_input.getvalue()
+            else:
+                photo_file      = None
+                photo_get_value = None
 
             # 1. Basic field mandatory check
             if not name_val or not email_val or not phone_val or not photo_file:
                 st.error("❌ All fields and a live photo are mandatory for verification.")
+                st.stop()
+
+            # 1a. GATE: Re-validate the photo before allowing submission
+            photo_ok, gate_report = validate_webcam_image(photo_file)
+            if not photo_ok:
+                for w in gate_report.get("warnings", []):
+                    st.error(w)
+                st.error(
+                    "🚫 Submission blocked — photo did not pass validation. "
+                    "Please retake the photo and ensure all checks pass."
+                )
                 st.stop()
 
             # 1b. OTP Check (Only if manual email)
@@ -769,13 +1131,12 @@ def render_verification_page():
                 st.stop()
 
             # 2. Run Cross-Validation against Stage 1 Data
-            
             with st.spinner("🕵️ Verification in progress..."):
                 name_result  = verify_name(parsed.get("name"), name_val)
                 email_match  = verify_email(parsed.get("email"), email_val)
                 phone_match  = verify_phone(parsed.get("phone"), phone_val)
-                face_result  = verify_identity(parsed.get("profile_photo"), photo_file.getvalue())
-            
+                face_result  = verify_identity(parsed.get("profile_photo"), photo_get_value)
+
             # Store results for dashboard
             st.session_state["verif_results"] = {
                 "name": name_result,
@@ -783,12 +1144,12 @@ def render_verification_page():
                 "phone": phone_match,
                 "face": face_result
             }
-            
+
             # MAJOR MISMATCH CHECK
             if not email_match:
                 st.error("🛑 IDENTITY ALERT: Email does not match the resume. Access Blocked.")
                 st.stop()
-            
+
             if face_result["status"] == "success" and not face_result["match"]:
                 st.error("🛑 IDENTITY ALERT: Live face does not match resume photo. Access Blocked.")
                 st.stop()
@@ -803,7 +1164,7 @@ def render_verification_page():
                     full_name  = name_val,
                     email      = email_val,
                     phone      = phone_val,
-                    photo_bytes= photo_file.getvalue(),
+                    photo_bytes= photo_get_value,
                     session_id = str(id(st.session_state)),
                 )
                 st.session_state["candidate_id"]           = candidate_id
@@ -814,6 +1175,7 @@ def render_verification_page():
                 st.rerun()
             except Exception as exc:
                 st.error(f"❌ Database error — could not save record: {exc}")
+
 
     # ── VERIFICATION DASHBOARD (Persistent after submission attempt) ─────────
     res = st.session_state.get("verif_results")
@@ -847,19 +1209,24 @@ def render_verification_page():
                     st.metric("Face ID", label, delta=f"{face['score']*100:.0f}%" if face["status"]=="success" else "0%", delta_color="normal")
 
 
-# Unified Interview UI is now handled via modules/interview_ui.py
-
-# Legacy interview function removed. System now uses modules/interview_ui.py
-
-
 def display_dashboard():
-    """Renders the analysis dashboard with LIVE data if available, placeholders otherwise."""
+    """Renders the analysis dashboard with LIVE data if available."""
     match_result = st.session_state.get("match_result")
+    
+    # Check for extraction failure/uninitialized state
+    if not match_result:
+        return
 
-    st.markdown("<br><hr style='border-top: 2px solid #e2e8f0;'><br>", unsafe_allow_html=True)
-    st.markdown("### 📊 Interviewer Dashboard")
+    # Check specifically if extraction failed due to empty index
+    if match_result.get("index_total_vectors", 0) == 0:
+        st.error("⚠️ Resume formatting is not proper. Failed to extract top matching segments.")
+        return
 
-    if match_result and match_result.get("status") == "success" and match_result["ranked"]:
+    # If ranking exists, show dashboard
+    if match_result.get("ranked"):
+        st.markdown("<br><hr style='border-top: 2px solid #e2e8f0;'><br>", unsafe_allow_html=True)
+        st.markdown("### 📊 Interviewer Dashboard")
+
         # ── LIVE DATA ──────────────────────────────────────────────────
         candidate = match_result["ranked"][0]   # Top candidate
 
@@ -877,25 +1244,27 @@ def display_dashboard():
         with kpi1:
             st.markdown(f"""
                 <div class="metric-card-container">
-                    <div class="metric-label">Semantic Alignment</div>
-                    <div class="metric-value">{candidate['semantic_score']:.1f}%</div>
-                    <div style="color: {tier_color}; font-weight: 600;">{tier}</div>
+                    <div class="metric-label">Matching Tier</div>
+                    <div class="metric-value" style="color: {tier_color};">{tier}</div>
+                    <div style="color: #64748b; font-weight: 600;">Overall Alignment</div>
                 </div>
             """, unsafe_allow_html=True)
+        
         with kpi2:
             st.markdown(f"""
                 <div class="metric-card-container">
-                    <div class="metric-label">Skill Match</div>
-                    <div class="metric-value">{candidate['skill_score']:.1f}%</div>
-                    <div style="color: #3b82f6; font-weight: 600;">{len(candidate['matched_skills'])} of {len(candidate['matched_skills']) + len(candidate['missing_skills'])} skills</div>
+                    <div class="metric-label">Semantic Similarity</div>
+                    <div class="metric-value">{candidate['semantic_score']}%</div>
+                    <div style="color: #64748b; font-weight: 600;">Content Depth</div>
                 </div>
             """, unsafe_allow_html=True)
+
         with kpi3:
             st.markdown(f"""
                 <div class="metric-card-container">
-                    <div class="metric-label">Overall Score</div>
-                    <div class="metric-value" style="color: {tier_color};">{score:.1f}%</div>
-                    <div style="color: #64748b; font-weight: 600;">Weighted Final</div>
+                    <div class="metric-label">Skill Score</div>
+                    <div class="metric-value">{candidate['skill_score']}%</div>
+                    <div style="color: #64748b; font-weight: 600;">JD Keyword Match</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -907,21 +1276,33 @@ def display_dashboard():
         with detail_col1:
             with st.container(border=True):
                 st.markdown("#### 🔍 Skill Gap Analysis")
-                matched = candidate.get("matched_skills", [])
-                missing = candidate.get("missing_skills", [])
+                
+                rec_result = st.session_state.get("rec_result", {})
+                
+                if rec_result.get("status") == "error":
+                    # REQUIREMENT: Professional error message for formatting/extraction failure
+                    st.error(f"⚠️ {rec_result.get('message', 'Unable to extract skills from resume due to formatting issues.')}")
+                else:
+                    matched = rec_result.get("matched_skills", [])
+                    missing = rec_result.get("missing_skills", [])
+                    summary = rec_result.get("improvement_summary", "")
 
-                if matched:
-                    st.write("**Matched Skills:**")
-                    tags = " ".join(f'<span class="tag tag-match">{s}</span>' for s in matched)
-                    st.markdown(tags, unsafe_allow_html=True)
+                    if summary:
+                        if "No significant skill gaps" in summary:
+                            st.success(f"✅ {summary}")
+                        else:
+                            st.info(f"💡 {summary}")
 
-                if missing:
-                    st.write("**Missing Skills:**")
-                    tags = " ".join(f'<span class="tag tag-missing">{s}</span>' for s in missing)
-                    st.markdown(tags, unsafe_allow_html=True)
+                    if matched:
+                        st.write("**Matched Skills:**")
+                        tags = " ".join(f'<span class="tag tag-match">{s}</span>' for s in matched)
+                        st.markdown(tags, unsafe_allow_html=True)
 
-                if not matched and not missing:
-                    st.info("No JD skills extracted for comparison.")
+                    if missing:
+                        st.write("**Missing Skills:**")
+                        tags = " ".join(f'<span class="tag tag-missing">{s}</span>' for s in missing)
+                        st.markdown(tags, unsafe_allow_html=True)
+
 
         with detail_col2:
             with st.container(border=True):
@@ -933,9 +1314,8 @@ def display_dashboard():
                         "experience": "💼 Work Experience",
                         "projects":   "🚀 Project / Portfolio",
                         "skills":     "🛠 Skills & Expertise",
-                        "summary":     "📋 Summary / Objective",
+                        "summary":    "📋 Summary / Objective",
                         "education":  "🎓 Education",
-                        "overview":   "🔍 General Overview"
                     }
                     
                     for i, chunk in enumerate(top_chunks, 1):
@@ -961,8 +1341,13 @@ def display_dashboard():
                         
                         if i < len(top_chunks):
                             st.markdown("---")
+                elif candidate.get("num_chunks_hit", 0) == 0:
+                    # REQUIREMENT: Specific error for failed extraction (no segments found in index)
+                    st.error("⚠️ Resume formatting is not proper. Failed to extract top matching segments.")
                 else:
-                    st.info("No high-relevance segments found for this JD.")
+                    # REQUIREMENT: If no relevant match found (but extraction worked): keep section hidden/empty.
+                    # We simply display nothing inside the container.
+                    pass
 
         # JD Skills extracted
         jd_skills = match_result.get("jd_skills", [])
@@ -1031,15 +1416,20 @@ def display_dashboard():
                     st.markdown("#### 🏭 Cultural Fit")
                     st.write(report.get("cultural_fit", "Not available."))
 
-            # Recommendations (Renamed as requested)
-            with st.expander("💡 Suggested Improvements & Learning Path", expanded=True):
-                for i, rec in enumerate(report.get("recommendations", []), 1):
-                    st.markdown(f"**{i}.** {rec}")
+            # Recommendations
+            recommendations = report.get("recommendations", [])
+            if recommendations:
+                with st.expander("💡 Actionable Recommendations", expanded=True):
+                    for i, rec in enumerate(recommendations, 1):
+                        st.markdown(f"**{i}.** {rec}")
+            else:
+                st.warning("⚠️ No specific recommendations were generated by the analysis engine.")
 
             # Interview Questions
-            with st.expander("🎯 Suggested Interview Questions", expanded=False):
-                for i, q in enumerate(report.get("interview_questions", []), 1):
-                    st.markdown(f"**Q{i}.** {q}")
+            if report.get("interview_questions"):
+                with st.expander("🎯 Suggested Interview Questions", expanded=False):
+                    for i, q in enumerate(report.get("interview_questions", []), 1):
+                        st.markdown(f"**Q{i}.** {q}")
 
         # ── ATS SCORE REPORT (always shows when analysis is done) ─────────────
         ats_result = st.session_state.get("ats_result")
@@ -1181,41 +1571,6 @@ def display_dashboard():
         # ── STAGE 2 TRANSITION ──────────────────────────────
         if st.session_state.get("stage_1_complete"):
             render_interview_button()
-            
-        # Also show recommendations for improvement regardless of stage
-        render_recommendations()
-
-
-    else:
-        # ── PLACEHOLDER (no analysis yet) ─────────────────────────────
-        kpi1, kpi2, kpi3 = st.columns(3)
-        with kpi1:
-            st.markdown("""
-                <div class="metric-card-container">
-                    <div class="metric-label">Semantic Alignment</div>
-                    <div class="metric-value">—</div>
-                    <div style="color: #94a3b8; font-weight: 600;">Awaiting Analysis</div>
-                </div>
-            """, unsafe_allow_html=True)
-        with kpi2:
-            st.markdown("""
-                <div class="metric-card-container">
-                    <div class="metric-label">Skill Match</div>
-                    <div class="metric-value">—</div>
-                    <div style="color: #94a3b8; font-weight: 600;">Awaiting Analysis</div>
-                </div>
-            """, unsafe_allow_html=True)
-        with kpi3:
-            st.markdown("""
-                <div class="metric-card-container">
-                    <div class="metric-label">Overall Score</div>
-                    <div class="metric-value">—</div>
-                    <div style="color: #94a3b8; font-weight: 600;">Awaiting Analysis</div>
-                </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.info("👆 Upload a resume, enter a Job Description, then click **Analyze Candidate** to see results.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  ANALYSIS PIPELINE FUNCTIONS
@@ -1241,7 +1596,27 @@ def analyze_candidate(parsed: dict, jd_text: str):
     if not _ensure_vector_store(parsed):
         return
 
-    candidate_skills = parsed.get("skills", [])
+    # --- SKILL EXTRACTION (Comprehensive) ---
+    # Extract skills from all sections: Skills, Experience, Projects
+    candidate_skills = list(parsed.get("skills", []))
+    
+    # Add skills found in experience descriptions
+    for exp in parsed.get("experience", []):
+        desc = exp.get("description", "")
+        if desc:
+            from modules.text_processing import extract_skills
+            candidate_skills.extend(extract_skills(desc))
+            
+    # Add skills found in project descriptions
+    for proj in parsed.get("projects", []):
+        desc = proj.get("description", "")
+        if desc:
+            from modules.text_processing import extract_skills
+            candidate_skills.extend(extract_skills(desc))
+            
+    # De-duplicate
+    candidate_skills = sorted(list(set(candidate_skills)))
+
     with st.spinner("🔍 Matching resume against Job Description..."):
         match_result = match_resume_to_jd(
             jd_text=jd_text,

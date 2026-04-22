@@ -19,17 +19,16 @@ import spacy
 # --- Logging ---
 logger = logging.getLogger("hiremind.text_processing")
 
-# --- spaCy Model (lazy-loaded singleton) ---
-_nlp = None
+import streamlit as st
 
+# --- spaCy Model (cached via Streamlit) ---
+@st.cache_resource
 def _get_nlp():
-    """Load spaCy model once and cache it globally."""
-    global _nlp
-    if _nlp is None:
-        logger.info("Loading spaCy en_core_web_md model...")
-        _nlp = spacy.load("en_core_web_md")
-        logger.info("spaCy model loaded successfully.")
-    return _nlp
+    """Load spaCy model once and cache it via Streamlit."""
+    logger.info("Loading spaCy en_core_web_md model...")
+    nlp = spacy.load("en_core_web_md")
+    logger.info("spaCy model loaded successfully.")
+    return nlp
 
 
 # ══════════════════════════════════════════════════════════════════════════════

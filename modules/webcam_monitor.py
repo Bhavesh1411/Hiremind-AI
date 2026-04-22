@@ -223,7 +223,106 @@ class FaceDetectionProcessor(VideoProcessorBase):
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
 
-# ── Session State Helpers ────────────────────────────────────────────────────
+# ── Identity Capture Processor (Photo-grab with live overlay) ────────────────
+
+class IdentityCaptureProcessor(VideoProcessorBase):
+    """
+    Video processor for the **identity verification capture** step.
+
+    Draws a real-time face alignment guide directly onto every webcam frame:
+      • Rule-of-thirds grid        (faint blue dashed lines)
+      • Face alignment oval        (dashed blue ellipse, centred)
+      • Corner frame brackets      (registration marks)
+      • Centre crosshair           (pin-point aid)
+      • "Align face in oval" label (bottom centre with background)
+
+    The latest processed frame is stored thread-safely so the Streamlit main
+    thread can snapshot it when the user clicks 'Capture Photo'.
+    """
+
+    def __init__(self):
+        self._lock          = threading.Lock()
+        self._latest_frame  = None   # np.ndarray (BGR)
+
+    def recv(self, frame: "av.VideoFrame") -> "av.VideoFrame":
+        img = frame.to_ndarray(format="bgr24")
+
+        if not _CV2_AVAILABLE:
+            # No OpenCV — pass frame through unmodified
+            with self._lock:
+                self._latest_frame = img.copy()
+            return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+        h, w = img.shape[:2]
+
+        # ── Rule-of-thirds grid ──────────────────────────────────────────────
+        grid_col = (160, 185, 215)   # muted steel-blue (BGR)
+        cv2.line(img, (w // 3,     0), (w // 3,     h), grid_col, 1, cv2.LINE_AA)
+        cv2.line(img, (2 * w // 3, 0), (2 * w // 3, h), grid_col, 1, cv2.LINE_AA)
+        cv2.line(img, (0, h // 3),     (w, h // 3),     grid_col, 1, cv2.LINE_AA)
+        cv2.line(img, (0, 2 * h // 3), (w, 2 * h // 3), grid_col, 1, cv2.LINE_AA)
+
+        # ── Face alignment oval ──────────────────────────────────────────────
+        cx  = w // 2
+        cy  = int(h * 0.46)
+        rx  = int(w * 0.22)
+        ry  = int(h * 0.37)
+        # Shadow (dark) for contrast on any background
+        cv2.ellipse(img, (cx, cy), (rx + 2, ry + 2), 0, 0, 360, (30, 30, 30),   2, cv2.LINE_AA)
+        # Main oval (bright blue)
+        cv2.ellipse(img, (cx, cy), (rx,     ry    ), 0, 0, 360, (240, 160, 60),  2, cv2.LINE_AA)
+
+        # ── Corner brackets ──────────────────────────────────────────────────
+        pad  = 14
+        blen = max(22, w // 20)
+        bcol = (230, 180, 100)
+        bthk = 2
+        for (x0, y0), (dx, dy) in [
+            ((pad,     pad    ), ( 1,  1)),
+            ((w - pad, pad    ), (-1,  1)),
+            ((pad,     h - pad), ( 1, -1)),
+            ((w - pad, h - pad), (-1, -1)),
+        ]:
+            cv2.line(img, (x0, y0), (x0 + dx * blen, y0           ), bcol, bthk, cv2.LINE_AA)
+            cv2.line(img, (x0, y0), (x0,              y0 + dy * blen), bcol, bthk, cv2.LINE_AA)
+
+        # ── Centre crosshair ─────────────────────────────────────────────────
+        clen = 12
+        ccol = (180, 200, 220)
+        cv2.line(img, (cx - clen, h // 2), (cx + clen, h // 2), ccol, 1, cv2.LINE_AA)
+        cv2.line(img, (cx, h // 2 - clen), (cx, h // 2 + clen), ccol, 1, cv2.LINE_AA)
+
+        # ── Bottom label ─────────────────────────────────────────────────────
+        label      = "Align face in oval"
+        font       = cv2.FONT_HERSHEY_SIMPLEX
+        fscale     = max(0.42, w / 1400)
+        thick      = 1
+        (tw, th), _ = cv2.getTextSize(label, font, fscale, thick)
+        lx = (w - tw) // 2
+        ly = h - 14
+        # Background pill
+        cv2.rectangle(img, (lx - 8, ly - th - 5), (lx + tw + 8, ly + 5), (20, 20, 20), -1)
+        cv2.putText(img, label, (lx, ly), font, fscale, (230, 180, 100), thick, cv2.LINE_AA)
+
+        # ── Thread-safe frame store ──────────────────────────────────────────
+        with self._lock:
+            self._latest_frame = img.copy()
+
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+    def get_latest_frame_bytes(self) -> bytes | None:
+        """
+        Returns the most-recent processed frame as JPEG bytes (quality 92),
+        or None if no frame has been received yet.
+        Called from the Streamlit main thread when user clicks 'Capture Photo'.
+        """
+        with self._lock:
+            frame = self._latest_frame
+        if frame is None or not _CV2_AVAILABLE:
+            return None
+        success, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
+        return buf.tobytes() if success else None
+
 
 def _init_monitor_state():
     """Initialize webcam monitoring session variables."""

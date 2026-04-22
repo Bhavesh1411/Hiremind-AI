@@ -27,19 +27,19 @@ from typing import Optional
 logger = logging.getLogger("hiremind.ats_scorer")
 
 # ── spaCy lazy loader ──────────────────────────────────────────────────────────
-_NLP = None
+import streamlit as st
 
+@st.cache_resource
 def _get_nlp():
-    """Lazy-load spaCy model to avoid startup cost."""
-    global _NLP
-    if _NLP is None:
-        import spacy
-        try:
-            _NLP = spacy.load("en_core_web_md")
-        except OSError:
-            _NLP = spacy.load("en_core_web_sm")
-        logger.info("spaCy model loaded: %s", _NLP.meta["name"])
-    return _NLP
+    """Load spaCy model once and cache it via Streamlit."""
+    import spacy
+    logger.info("Loading spaCy model for ATS scoring...")
+    try:
+        nlp = spacy.load("en_core_web_md")
+    except OSError:
+        nlp = spacy.load("en_core_web_sm")
+    logger.info("spaCy model loaded: %s", nlp.meta["name"])
+    return nlp
 
 
 # ── Constants ──────────────────────────────────────────────────────────────────

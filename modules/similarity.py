@@ -400,11 +400,12 @@ def match_resume_to_jd(
             - "message":      Human-readable status
     """
     result = {
-        "status":      "error",
-        "jd_skills":   [],
-        "ranked":      [],
-        "total_found": 0,
-        "message":     "",
+        "status":              "error",
+        "jd_skills":           [],
+        "ranked":              [],
+        "total_found":         0,
+        "index_total_vectors": 0,
+        "message":             "",
     }
 
     try:
@@ -421,11 +422,13 @@ def match_resume_to_jd(
 
         # Step 3 — Load FAISS index
         index, metadata = load_faiss_index()
+        result["index_total_vectors"] = index.ntotal
 
         # Step 4 — FAISS search
         search_results = search_similar_resumes(jd_embedding, index, metadata, k)
         if not search_results:
-            result["message"] = "No matching resumes found in the vector store."
+            result["status"]  = "success"
+            result["message"] = "No relevant matches found in the resume."
             return result
 
         # Step 5 — Aggregate by candidate

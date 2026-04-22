@@ -41,17 +41,16 @@ EMBEDDING_DIM  = 384   # Dimension of all-MiniLM-L6-v2 output
 CHUNK_SIZE     = 400
 CHUNK_OVERLAP  = 80
 
-# ── Lazy-loaded Model Singleton ────────────────────────────────────────────────
-_model = None
+import streamlit as st
 
+# ── Cached Model & Resource Loading ──────────────────────────────────────────
+@st.cache_resource
 def _get_model() -> SentenceTransformer:
-    """Load the Sentence Transformer model once and cache it globally."""
-    global _model
-    if _model is None:
-        logger.info("Loading Sentence Transformer model: %s ...", MODEL_NAME)
-        _model = SentenceTransformer(MODEL_NAME)
-        logger.info("Model loaded. Embedding dimension: %d", EMBEDDING_DIM)
-    return _model
+    """Load the Sentence Transformer model once and cache it via Streamlit."""
+    logger.info("Loading Sentence Transformer model: %s ...", MODEL_NAME)
+    model = SentenceTransformer(MODEL_NAME)
+    logger.info("Model loaded. Embedding dimension: %d", EMBEDDING_DIM)
+    return model
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -78,7 +77,7 @@ def prepare_text_chunks(structured_json: dict, source_label: str = "resume") -> 
             - "name":    candidate name (if available)
     """
     chunks = []
-    name = structured_json.get("name", "Unknown Candidate")
+    name = structured_json.get("name", "")
 
     # Define which fields to process and their display prefixes
     field_map = {
@@ -102,8 +101,8 @@ def prepare_text_chunks(structured_json: dict, source_label: str = "resume") -> 
         if not content:
             continue
 
-        # Build a contextual text block
-        text_block = f"{prefix}:\n{content}"
+        # Build a contextual text block (ONLY actual content, no prefixes)
+        text_block = content
 
         chunks.append({
             "text":    text_block,
@@ -111,26 +110,6 @@ def prepare_text_chunks(structured_json: dict, source_label: str = "resume") -> 
             "source":  source_label,
             "name":    name,
         })
-
-    # Also create a combined "overview" chunk for holistic matching
-    overview_parts = []
-    if name and name != "Unknown Candidate":
-        overview_parts.append(f"Candidate: {name}")
-    skills = structured_json.get("skills", [])
-    if skills:
-        overview_parts.append(f"Skills: {', '.join(skills[:20])}")
-    summary = structured_json.get("summary", "")
-    if summary:
-        overview_parts.append(f"Summary: {str(summary)[:300]}")
-
-    if overview_parts:
-        chunks.append({
-            "text":    "\n".join(overview_parts),
-            "section": "overview",
-            "source":  source_label,
-            "name":    name,
-        })
-
     logger.info(
         "Prepared %d text segments from %s (%s).",
         len(chunks), source_label, name,
@@ -317,6 +296,7 @@ def save_vector_store(
 #  6. load_vector_store()
 # ══════════════════════════════════════════════════════════════════════════════
 
+@st.cache_resource
 def load_vector_store(
     index_path: Optional[Path] = None,
     metadata_path: Optional[Path] = None,
@@ -418,38 +398,16 @@ def process_embeddings(
         result["metadata"] = chunks
         result["total_vectors"] = index.ntotal
 
-        # Step 5 — Persist to disk (Unique by Candidate Name)
+        # Step 5 — Persist to disk (OVERWRITE for Freshness)
         if persist:
-            # If an index already exists, load and filter
-            if INDEX_PATH.exists() and METADATA_PATH.exists():
-                _, existing_meta = load_vector_store()
-                
-                # Deduplicate: Remove any existing chunks for this specific candidate name
-                new_candidate_name = structured_json.get("name", "Unknown Candidate")
-                filtered_meta = [
-                    m for m in existing_meta if m.get("name") != new_candidate_name
-                ]
-                
-                # Combine with new chunks
-                merged_meta = filtered_meta + chunks
-                
-                # Rebuild index from all text in merged metadata (to keep it consistent)
-                # Note: For production with millions of rows, we'd use better deletion,
-                # but for this HR OS, rebuilding IndexFlatIP is instantaneous and robust.
-                merged_embeddings = generate_embeddings(merged_meta)
-                index = create_faiss_index(merged_embeddings)
-                
-                storage_info = save_vector_store(index, merged_meta)
-                result["total_vectors"] = index.ntotal
-                result["metadata"] = merged_meta
-                result["index"] = index
-                logger.info("Updated index. Candidate '%s' data replaced. Total: %d vectors.", 
-                            new_candidate_name, index.ntotal)
-            else:
-                storage_info = save_vector_store(index, chunks)
-                result["storage"] = storage_info
-
+            # We strictly overwrite the store for every new analysis to ensure
+            # "Top Matching Segments" and other data are NEVER stale or dummy.
+            storage_info = save_vector_store(index, chunks)
             result["storage"] = storage_info
+            result["total_vectors"] = index.ntotal
+            result["metadata"] = chunks
+            result["index"] = index
+            logger.info("Vector store refreshed (overwritten) for analysis.")
 
         result["status"] = "success"
         result["message"] = (
