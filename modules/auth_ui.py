@@ -9,15 +9,15 @@ from modules.email_service import send_hiring_email
 
 
 def render_role_selection():
-    # --- ADVANCED FUTURISTIC UI CSS ---
+    # --- PREMIUM LIGHT THEME UI CSS (Matching Reference Image) ---
     st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700&display=swap');
 
     /* Reset & Base */
     .stApp {
-        background: #020617 !important;
-        color: #f8fafc !important;
+        background: #fdfdff !important;
+        color: #1e293b !important;
     }
     
     .main .block-container {
@@ -25,345 +25,346 @@ def render_role_selection():
         max-width: 100% !important;
     }
 
-    /* Immersive Background with Neural Effects */
-    .bg-wrapper {
+    /* Subtle Pattern Backgrounds */
+    .bg-elements {
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        background: 
-            radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
-            radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
-            radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, #020617 100%);
         z-index: -1;
+        pointer-events: none;
         overflow: hidden;
     }
-    
-    .neural-grid {
+    .neural-pattern-left {
         position: absolute;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background-image: 
-            radial-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-            radial-gradient(rgba(139, 92, 246, 0.1) 1px, transparent 1px);
-        background-size: 40px 40px;
-        background-position: 0 0, 20px 20px;
-        opacity: 0.3;
+        top: -100px; left: -100px;
+        width: 600px; height: 600px;
+        background: radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.05), transparent 70%);
+        filter: blur(40px);
     }
-
-    .glow-overlay {
+    .neural-pattern-right {
         position: absolute;
-        top: -10%; left: -10%; width: 120%; height: 120%;
-        background: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
-        pointer-events: none;
+        top: 50px; right: -150px;
+        width: 700px; height: 700px;
+        background: radial-gradient(circle at 70% 30%, rgba(139, 92, 246, 0.05), transparent 70%);
+        filter: blur(50px);
     }
 
     /* Top Navigation Area */
-    .top-nav {
+    .top-nav-ref {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1.5rem 4rem;
+        padding: 1.5rem 5rem;
         width: 100%;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(226, 232, 240, 0.5);
     }
-    .brand-area {
+    .brand-group {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
     }
-    .brand-logo {
-        width: 40px;
-        height: 40px;
-        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-        border-radius: 10px;
+    .brand-icon-ref {
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.5rem;
-        box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
     }
-    .brand-text {
+    .brand-content {
         display: flex;
         flex-direction: column;
     }
-    .brand-name {
-        font-family: 'Space Grotesk', sans-serif;
+    .brand-title-ref {
+        font-family: 'Outfit', sans-serif;
         font-size: 1.5rem;
         font-weight: 700;
-        color: white;
-        line-height: 1;
+        color: #0f172a;
+        line-height: 1.1;
     }
-    .brand-tagline {
-        font-size: 0.75rem;
-        color: #94a3b8;
-        letter-spacing: 0.05em;
+    .brand-subtitle-ref {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 500;
     }
     
-    .status-badge-premium {
-        background: rgba(34, 197, 94, 0.1);
+    .status-badge-active {
+        background: rgba(34, 197, 94, 0.08);
         border: 1px solid rgba(34, 197, 94, 0.2);
-        padding: 8px 20px;
+        padding: 8px 18px;
         border-radius: 100px;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #4ade80;
-        backdrop-filter: blur(10px);
+        color: #166534;
     }
-    .pulse-dot {
+    .dot-pulse {
         width: 8px;
         height: 8px;
         background: #22c55e;
         border-radius: 50%;
-        box-shadow: 0 0 12px #22c55e;
-        animation: pulse-glow 2s infinite;
+        box-shadow: 0 0 0 rgba(34, 197, 94, 0.4);
+        animation: pulse-ring 2s infinite;
     }
-    @keyframes pulse-glow {
-        0% { transform: scale(0.95); opacity: 0.8; }
-        50% { transform: scale(1.1); opacity: 1; }
-        100% { transform: scale(0.95); opacity: 0.8; }
+    @keyframes pulse-ring {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
     }
 
-    /* Hero Section - Reference Match */
-    .hero-main {
+    /* Hero Section */
+    .hero-container-ref {
         text-align: center;
-        padding: 5rem 1rem 3rem;
-        max-width: 900px;
+        padding: 4rem 1rem 2rem;
+        max-width: 1000px;
         margin: 0 auto;
     }
-    .hero-welcome {
-        color: #818cf8;
-        font-size: 1.4rem;
-        font-weight: 600;
-        margin-bottom: 0.75rem;
-        text-shadow: 0 0 15px rgba(129, 140, 248, 0.3);
+    .hero-welcome-text {
+        color: #6366f1;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-transform: none;
     }
-    .hero-title-ref {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 5.5rem;
+    .hero-main-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 5rem;
         font-weight: 800;
-        margin-bottom: 1rem;
-        background: linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899);
+        margin-bottom: 0.5rem;
+        background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        letter-spacing: -0.03em;
+        letter-spacing: -0.02em;
     }
-    .hero-subtitle-ref {
-        font-size: 1.8rem;
+    .hero-tagline-ref {
+        font-size: 1.6rem;
         font-weight: 700;
-        color: white;
-        margin-bottom: 1.5rem;
-        text-align: center;
-        width: 100%;
+        color: #1e293b;
+        margin-bottom: 1.2rem;
     }
-    .hero-desc-ref {
-        color: #94a3b8;
-        font-size: 1.15rem;
+    .hero-para-ref {
+        color: #64748b;
+        font-size: 1.1rem;
         line-height: 1.6;
-        max-width: 700px;
+        max-width: 750px;
         margin: 0 auto 2.5rem;
-        text-align: center;
     }
 
-    /* Feature Strip */
-    .feature-strip {
+    /* Badge Strip */
+    .badge-strip-ref {
         display: inline-flex;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 14px;
-        padding: 12px 30px;
-        gap: 30px;
-        backdrop-filter: blur(10px);
+        background: white;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: 12px;
+        padding: 10px 24px;
+        gap: 24px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     }
-    .strip-item {
+    .badge-item {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         font-size: 0.9rem;
-        color: #cbd5e1;
-        font-weight: 500;
+        color: #475569;
+        font-weight: 600;
     }
-    .strip-divider {
+    .badge-div {
         width: 1px;
-        height: 20px;
-        background: rgba(255, 255, 255, 0.1);
+        height: 18px;
+        background: #e2e8f0;
     }
 
-    /* Portal Cards - Reference Match */
-    .portals-grid {
+    /* Portal Grid */
+    .portal-grid-ref {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 2.5rem;
-        max-width: 1100px;
+        max-width: 1050px;
         margin: 4rem auto;
         padding: 0 2rem;
     }
-    .ref-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+    .card-ref {
+        background: white;
+        border: 1px solid rgba(226, 232, 240, 0.8);
         border-radius: 24px;
         padding: 3rem;
         text-align: left;
         position: relative;
         overflow: hidden;
-        transition: all 0.4s ease;
-        backdrop-filter: blur(20px);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
     }
-    .ref-card:hover {
-        transform: translateY(-10px);
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(59, 130, 246, 0.4);
+    .card-ref:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+        border-color: rgba(59, 130, 246, 0.3);
     }
-    .ref-card.admin:hover {
-        border-color: rgba(139, 92, 246, 0.4);
+    .card-ref.admin-card:hover {
+        border-color: rgba(139, 92, 246, 0.3);
     }
     
-    .card-icon-round {
-        width: 60px;
-        height: 60px;
-        background: rgba(59, 130, 246, 0.15);
+    /* Background Illustrations for Cards */
+    .card-illustration {
+        position: absolute;
+        right: 0; bottom: 0;
+        width: 180px; height: 180px;
+        opacity: 0.05;
+        pointer-events: none;
+    }
+
+    .card-icon-box {
+        width: 64px;
+        height: 64px;
+        background: #f1f5f9;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.8rem;
         margin-bottom: 2rem;
-        color: #3b82f6;
-        box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        transition: all 0.3s ease;
     }
-    .admin .card-icon-round {
-        background: rgba(139, 92, 246, 0.15);
-        color: #8b5cf6;
-        box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
-    }
+    .candidate-card .card-icon-box { color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+    .admin-card .card-icon-box { color: #8b5cf6; background: rgba(139, 92, 246, 0.05); }
 
-    .ref-card-title {
-        font-family: 'Space Grotesk', sans-serif;
+    .card-title-ref {
+        font-family: 'Outfit', sans-serif;
         font-size: 2.2rem;
         font-weight: 700;
-        color: white;
+        color: #0f172a;
         margin-bottom: 1rem;
     }
-    .ref-card-desc {
-        color: #94a3b8;
+    .card-desc-ref {
+        color: #64748b;
         font-size: 1.1rem;
         line-height: 1.5;
         margin-bottom: 2.5rem;
+        max-width: 320px;
     }
 
-    /* Card CTA Buttons */
-    .cta-btn-ref {
+    /* Buttons */
+    .portal-btn-ref {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 12px;
-        background: linear-gradient(90deg, #1d4ed8, #3b82f6);
+        background: linear-gradient(90deg, #2563eb, #3b82f6);
         color: white;
         padding: 16px 32px;
-        border-radius: 14px;
+        border-radius: 12px;
         font-weight: 700;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         text-decoration: none;
         transition: all 0.3s ease;
-        box-shadow: 0 10px 20px rgba(29, 78, 216, 0.3);
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+        width: 100%;
+        border: none;
+        cursor: pointer;
     }
-    .admin .cta-btn-ref {
-        background: linear-gradient(90deg, #6d28d9, #8b5cf6);
-        box-shadow: 0 10px 20px rgba(109, 40, 217, 0.3);
+    .admin-card .portal-btn-ref {
+        background: linear-gradient(90deg, #7c3aed, #a855f7);
+        box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
     }
-    
-    /* Feature Section Below Cards */
-    .choose-us-section {
-        max-width: 1200px;
-        margin: 6rem auto;
-        padding: 4rem;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+    .portal-btn-ref:hover {
+        opacity: 0.95;
+        transform: scale(1.02);
+    }
+
+    /* Features Section */
+    .features-section-ref {
+        max-width: 1100px;
+        margin: 5rem auto;
+        padding: 3rem;
+        background: white;
+        border: 1px solid rgba(226, 232, 240, 0.8);
         border-radius: 32px;
         text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
     }
-    .section-title-line {
+    .feat-header {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 20px;
-        margin-bottom: 4rem;
+        margin-bottom: 3.5rem;
     }
-    .title-line {
+    .feat-line {
         height: 1px;
-        width: 100px;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        flex: 1;
+        max-width: 150px;
+        background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
     }
-    .section-title-text {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 2rem;
+    .feat-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.8rem;
         font-weight: 700;
-        color: white;
+        color: #1e293b;
     }
     
-    .features-row-ref {
+    .feat-row-ref {
         display: flex;
         justify-content: space-between;
         gap: 2rem;
     }
-    .feat-card-ref {
+    .feat-item-ref {
         flex: 1;
         text-align: center;
     }
-    .feat-icon-ref {
-        width: 50px;
-        height: 50px;
-        margin: 0 auto 1.5rem;
+    .feat-icon-round {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 1.2rem;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 1.4rem;
+        border-radius: 50%;
+        background: #f8fafc;
+        border: 1px solid #f1f5f9;
+        transition: all 0.3s ease;
+    }
+    .feat-item-ref:hover .feat-icon-round {
+        transform: scale(1.1);
+        background: white;
+        box-shadow: 0 8px 15px rgba(0,0,0,0.05);
     }
     .feat-name-ref {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 700;
-        color: white;
-        margin-bottom: 0.5rem;
+        color: #0f172a;
+        margin-bottom: 0.4rem;
         display: block;
     }
     .feat-desc-ref {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
         color: #64748b;
         line-height: 1.4;
     }
 
-    /* Footer - Reference Match */
-    .footer-ref {
+    /* Footer */
+    .footer-container-ref {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 4rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 3rem 5rem;
+        border-top: 1px solid #f1f5f9;
         margin-top: 4rem;
-    }
-    .footer-left {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        color: #f8fafc;
-        font-size: 0.9rem;
-    }
-    .footer-center {
-        color: #f8fafc;
+        color: #64748b;
         font-size: 0.85rem;
     }
-    .footer-right {
-        color: #f8fafc;
-        font-size: 0.9rem;
-    }
-    .heart-icon { color: #ec4899; }
+    .footer-info { display: flex; align-items: center; gap: 8px; }
+    .heart-red { color: #ef4444; }
 
-    /* Hide Streamlit Elements */
+    /* Hide Default Elements */
     #MainMenu, footer, header { visibility: hidden; }
     
-    /* Button Overrides */
+    /* Streamlit Button Reset */
     .stButton > button {
         background: transparent !important;
         border: none !important;
@@ -372,24 +373,24 @@ def render_role_selection():
     }
 </style>
 
-<div class="bg-wrapper">
-    <div class="neural-grid"></div>
-    <div class="glow-overlay"></div>
+<div class="bg-elements">
+    <div class="neural-pattern-left"></div>
+    <div class="neural-pattern-right"></div>
 </div>
 """, unsafe_allow_html=True)
 
     # --- TOP NAVIGATION ---
     st.markdown("""
-        <div class="top-nav">
-            <div class="brand-area">
-                <div class="brand-logo">🧠</div>
-                <div class="brand-text">
-                    <span class="brand-name">HireMind AI</span>
-                    <span class="brand-tagline">Autonomous HR Operating System</span>
+        <div class="top-nav-ref">
+            <div class="brand-group">
+                <div class="brand-icon-ref">🧠</div>
+                <div class="brand-content">
+                    <span class="brand-title-ref">HireMind AI</span>
+                    <span class="brand-subtitle-ref">Autonomous HR Operating System</span>
                 </div>
             </div>
-            <div class="status-badge-premium">
-                <div class="pulse-dot"></div>
+            <div class="status-badge-active">
+                <div class="dot-pulse"></div>
                 AI Engine Active
             </div>
         </div>
@@ -397,86 +398,86 @@ def render_role_selection():
 
     # --- HERO SECTION ---
     st.markdown("""
-        <div class="hero-main">
-            <div class="hero-welcome">Welcome to</div>
-            <h1 class="hero-title-ref">HireMind AI</h1>
-            <div class="hero-subtitle-ref">AI-Powered Autonomous Hiring Platform</div>
-            <p class="hero-desc-ref">
+        <div class="hero-container-ref">
+            <div class="hero-welcome-text">Welcome to</div>
+            <h1 class="hero-main-title">HireMind AI</h1>
+            <div class="hero-tagline-ref">AI-Powered Autonomous Hiring Platform</div>
+            <p class="hero-para-ref">
                 Streamline your recruitment with AI-driven resume screening, live interviews, 
-                and intelligent fraud detection in one unified platform.
+                and intelligent fraud detection.
             </p>
-            <div class="feature-strip">
-                <div class="strip-item">✨ AI-Powered</div>
-                <div class="strip-divider"></div>
-                <div class="strip-item">🛡️ Secure</div>
-                <div class="strip-divider"></div>
-                <div class="strip-item">🧠 Smart</div>
-                <div class="strip-divider"></div>
-                <div class="strip-item">📈 Scalable</div>
+            <div class="badge-strip-ref">
+                <div class="badge-item"><span style="color:#3b82f6;">✦</span> AI-Powered</div>
+                <div class="badge-div"></div>
+                <div class="badge-item"><span style="color:#10b981;">🛡️</span> Secure</div>
+                <div class="badge-div"></div>
+                <div class="badge-item"><span style="color:#8b5cf6;">🧠</span> Smart</div>
+                <div class="badge-div"></div>
+                <div class="badge-item"><span style="color:#ec4899;">📈</span> Scalable</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
     # --- PORTAL CARDS ---
-    col_cards = st.columns([1, 1])
+    col1, col2 = st.columns([1, 1])
 
-    with col_cards[0]:
+    with col1:
         st.markdown("""
-            <div class="ref-card candidate">
-                <div class="card-icon-round">👤</div>
-                <div class="ref-card-title">Candidate</div>
-                <p class="ref-card-desc">Find jobs, apply with your resume, and complete AI interviews in minutes.</p>
+            <div class="card-ref candidate-card">
+                <div class="card-icon-box">👤</div>
+                <div class="card-title-ref">Candidate</div>
+                <p class="card-desc-ref">Find jobs, apply with your resume, and complete AI interviews.</p>
         """, unsafe_allow_html=True)
-        if st.button("Access Candidate Portal →", key="btn_cand_ref"):
+        if st.button("Access Candidate Portal →", key="portal_cand_ref"):
             st.session_state["auth_role"] = "candidate"
             st.session_state["current_page"] = "login"
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_cards[1]:
+    with col2:
         st.markdown("""
-            <div class="ref-card admin">
-                <div class="card-icon-round">💼</div>
-                <div class="ref-card-title">Admin / Recruiter</div>
-                <p class="ref-card-desc">Manage job postings, review candidates, and monitor system performance.</p>
+            <div class="card-ref admin-card">
+                <div class="card-icon-box">💼</div>
+                <div class="card-title-ref">Admin / Recruiter</div>
+                <p class="card-desc-ref">Manage job postings, review candidates, and monitor system performance.</p>
         """, unsafe_allow_html=True)
-        if st.button("Access Admin Dashboard →", key="btn_admin_ref"):
+        if st.button("Access Admin Dashboard →", key="portal_admin_ref"):
             st.session_state["auth_role"] = "admin"
             st.session_state["current_page"] = "login"
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- WHY CHOOSE US SECTION ---
+    # --- FEATURES SECTION ---
     st.markdown("""
-        <div class="choose-us-section">
-            <div class="section-title-line">
-                <div class="title-line"></div>
-                <span class="section-title-text">Why Choose HireMind AI?</span>
-                <div class="title-line"></div>
+        <div class="features-section-ref">
+            <div class="feat-header">
+                <div class="feat-line"></div>
+                <span class="feat-title">Why Choose HireMind AI?</span>
+                <div class="feat-line"></div>
             </div>
-            <div class="features-row-ref">
-                <div class="feat-card-ref">
-                    <div class="feat-icon-ref">🎯</div>
+            <div class="feat-row-ref">
+                <div class="feat-item-ref">
+                    <div class="feat-icon-round" style="color:#3b82f6; background:rgba(59,130,246,0.05);">🎯</div>
                     <span class="feat-name-ref">AI Resume Screening</span>
                     <span class="feat-desc-ref">Smart matching with context understanding</span>
                 </div>
-                <div class="feat-card-ref">
-                    <div class="feat-icon-ref">🛡️</div>
+                <div class="feat-item-ref">
+                    <div class="feat-icon-round" style="color:#8b5cf6; background:rgba(139,92,246,0.05);">🛡️</div>
                     <span class="feat-name-ref">Fraud Detection</span>
                     <span class="feat-desc-ref">Advanced verification and anti-cheating</span>
                 </div>
-                <div class="feat-card-ref">
-                    <div class="feat-icon-ref">🎙️</div>
+                <div class="feat-item-ref">
+                    <div class="feat-icon-round" style="color:#10b981; background:rgba(16,185,129,0.05);">🎙️</div>
                     <span class="feat-name-ref">Voice AI Interview</span>
                     <span class="feat-desc-ref">Natural conversations with AI interviewer</span>
                 </div>
-                <div class="feat-card-ref">
-                    <div class="feat-icon-ref">📸</div>
+                <div class="feat-item-ref">
+                    <div class="feat-icon-round" style="color:#f59e0b; background:rgba(245,158,11,0.05);">📸</div>
                     <span class="feat-name-ref">Live Proctoring</span>
                     <span class="feat-desc-ref">Real-time monitoring and face verification</span>
                 </div>
-                <div class="feat-card-ref">
-                    <div class="feat-icon-ref">📊</div>
+                <div class="feat-item-ref">
+                    <div class="feat-icon-round" style="color:#ec4899; background:rgba(236,72,153,0.05);">📊</div>
                     <span class="feat-name-ref">Analytics Dashboard</span>
                     <span class="feat-desc-ref">Data-driven insights for better hiring</span>
                 </div>
@@ -486,54 +487,64 @@ def render_role_selection():
 
     # --- FOOTER ---
     st.markdown("""
-        <div class="footer-ref">
-            <div class="footer-left">
-                <span>🔒 Secure. Intelligent. Autonomous.</span>
+        <div class="footer-container-ref">
+            <div class="footer-info">
+                <span style="font-size:1.1rem; filter:grayscale(100%);">🔒</span> 
+                Secure. Intelligent. Autonomous. Building the future of hiring.
             </div>
-            <div class="footer-center">
+            <div class="footer-copyright">
                 © 2024 HireMind AI. All rights reserved.
             </div>
-            <div class="footer-right">
-                Made with <span class="heart-icon">❤️</span> for a better future
+            <div class="footer-info">
+                Made with <span class="heart-red">❤️</span> for a better future
             </div>
         </div>
     """, unsafe_allow_html=True)
 
+
 def render_login_page():
     role = st.session_state.get("auth_role", "candidate")
     
+    # --- PREMIUM LOGIN UI CSS ---
     st.markdown("""
 <style>
-    /* Global fixes for the login page */
-    .stApp { background: #020617 !important; }
+    /* Reset & Background */
+    .stApp { background: #fdfdff !important; }
     
-    /* Hide the default display_header if it's there */
-    .header-container { display: none !important; }
+    /* Center the Login Card */
+    .login-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 2rem;
+        background: radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.03), transparent 40%),
+                    radial-gradient(circle at 90% 90%, rgba(168, 85, 247, 0.03), transparent 40%);
+    }
 
-    /* The target columns wrapper */
-    div[data-testid="stHorizontalBlock"]:has(.right-heading) {
-        gap: 0 !important;
-        background: rgba(255, 255, 255, 0.02) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    /* Main Container */
+    div[data-testid="stHorizontalBlock"]:has(.login-card-left) {
+        background: white !important;
+        border: 1px solid rgba(226, 232, 240, 0.8) !important;
         border-radius: 32px !important;
-        backdrop-filter: blur(20px) !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 40px rgba(139, 92, 246, 0.1) !important;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04) !important;
         overflow: hidden !important;
-        max-width: 1000px !important;
+        max-width: 1050px !important;
         margin: 4rem auto !important;
+        gap: 0 !important;
     }
     
-    /* Left Column (Form) */
-    div[data-testid="stHorizontalBlock"]:has(.right-heading) > div[data-testid="column"]:nth-of-type(1) {
-        padding: 3rem 4rem !important;
-        background: transparent !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    /* Left Panel (Form) */
+    div[data-testid="stHorizontalBlock"]:has(.login-card-left) > div[data-testid="column"]:nth-of-type(1) {
+        padding: 4rem 5rem !important;
+        background: white !important;
+        border-right: 1px solid #f1f5f9 !important;
     }
 
-    /* Right Column (Illustration) */
-    div[data-testid="stHorizontalBlock"]:has(.right-heading) > div[data-testid="column"]:nth-of-type(2) {
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(2, 6, 23, 0.8) 100%) !important;
-        padding: 3rem 3rem !important;
+    /* Right Panel (Illustration/Info) */
+    div[data-testid="stHorizontalBlock"]:has(.login-card-left) > div[data-testid="column"]:nth-of-type(2) {
+        background: #f8fafc !important;
+        padding: 4rem !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
@@ -542,137 +553,146 @@ def render_login_page():
     }
 
     /* Typography */
-    .login-heading {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: white;
+    .login-brand-logo {
+        width: 44px; height: 44px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; color: white;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+    .login-title-text {
+        font-family: 'Outfit', sans-serif;
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #0f172a;
         margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
     }
-    .login-heading .highlight {
-        background: linear-gradient(to right, #3b82f6, #8b5cf6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    .login-subtitle {
-        color: #94a3b8;
-        font-size: 1rem;
-        margin-bottom: 2rem;
+    .login-subtitle-text {
+        color: #64748b;
+        font-size: 1.1rem;
+        margin-bottom: 2.5rem;
+        font-weight: 500;
     }
 
-    /* Form Overrides */
+    /* Form Styling */
     div[data-testid="stForm"] {
-        background: transparent !important;
         border: none !important;
         padding: 0 !important;
-        box-shadow: none !important;
+        background: transparent !important;
     }
     .stTextInput label {
-        color: #cbd5e1 !important;
-        font-weight: 500 !important;
-        font-size: 0.9rem !important;
-    }
-    .stTextInput input {
-        background: rgba(255, 255, 255, 0.03) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        color: white !important;
-        padding: 0.7rem 1rem !important;
-        border-radius: 12px !important;
-        font-size: 1rem !important;
+        color: #1e293b !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
         margin-bottom: 0.5rem !important;
     }
+    .stTextInput input {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #0f172a !important;
+        padding: 0.8rem 1.2rem !important;
+        border-radius: 12px !important;
+        font-size: 1rem !important;
+        transition: all 0.2s ease !important;
+    }
     .stTextInput input:focus {
-        border-color: #8b5cf6 !important;
-        box-shadow: 0 0 15px rgba(139, 92, 246, 0.2) !important;
+        border-color: #6366f1 !important;
+        background: white !important;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.05) !important;
     }
 
-    /* Sign In Buttons */
+    /* Buttons */
     div[data-testid="stFormSubmitButton"] > button {
         border-radius: 12px !important;
-        padding: 0.8rem !important;
-        font-weight: 600 !important;
+        padding: 0.9rem !important;
+        font-weight: 700 !important;
         width: 100% !important;
-        transition: all 0.3s ease !important;
+        font-size: 1rem !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
+    /* Primary Action */
     div[data-testid="stFormSubmitButton"]:first-of-type > button {
-        background: linear-gradient(90deg, #1d4ed8, #6d28d9) !important;
+        background: linear-gradient(90deg, #4f46e5, #6366f1) !important;
         color: white !important;
         border: none !important;
-        box-shadow: 0 8px 20px rgba(109, 40, 217, 0.3) !important;
+        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.2) !important;
     }
     div[data-testid="stFormSubmitButton"]:first-of-type > button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: 0 12px 25px rgba(109, 40, 217, 0.5) !important;
+        box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3) !important;
+        opacity: 0.95 !important;
     }
-    
+    /* Secondary/Cancel */
     div[data-testid="stFormSubmitButton"]:last-of-type > button {
-        background: transparent !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        color: #94a3b8 !important;
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #64748b !important;
     }
     div[data-testid="stFormSubmitButton"]:last-of-type > button:hover {
-        border-color: white !important;
-        color: white !important;
-        background: rgba(255, 255, 255, 0.05) !important;
+        border-color: #cbd5e1 !important;
+        color: #1e293b !important;
+        background: #f8fafc !important;
     }
 
-    /* Right Panel Elements */
-    .right-heading {
-        font-family: 'Space Grotesk', sans-serif;
-        color: white;
+    /* Right Panel Content */
+    .feature-img {
+        width: 100%;
+        max-width: 320px;
+        border-radius: 24px;
+        margin-bottom: 2.5rem;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+    }
+    .right-title {
+        font-family: 'Outfit', sans-serif;
         font-size: 1.8rem;
         font-weight: 700;
-        margin-top: 1.5rem;
-        margin-bottom: 0.5rem;
+        color: #0f172a;
+        margin-bottom: 1rem;
     }
-    .right-desc {
-        color: #94a3b8;
-        font-size: 0.95rem;
-        line-height: 1.5;
-        margin-bottom: 2rem;
+    .right-text {
+        color: #64748b;
+        font-size: 1rem;
+        line-height: 1.6;
+        margin-bottom: 2.5rem;
     }
-    .right-features {
-        text-align: left;
-        color: #e2e8f0;
-        font-size: 0.95rem;
-        font-weight: 500;
-        background: rgba(0,0,0,0.2);
-        padding: 1.5rem;
-        border-radius: 16px;
-        border: 1px solid rgba(255,255,255,0.05);
+    .feat-pill-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
         width: 100%;
     }
-    .right-features div {
-        margin-bottom: 0.8rem;
+    .feat-pill {
+        background: white;
+        border: 1px solid #e2e8f0;
+        padding: 1rem 1.5rem;
+        border-radius: 16px;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
+        text-align: left;
+        font-weight: 600;
+        color: #1e293b;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.01);
     }
-    .right-features div:last-child {
-        margin-bottom: 0;
-    }
-    
-    /* Right Panel Create Account Button */
-    button[kind="secondary"] {
-        background: transparent !important;
-        border: 1px solid rgba(139, 92, 246, 0.5) !important;
-        color: white !important;
-        border-radius: 12px !important;
-        padding: 0.6rem 2rem !important;
-        margin-top: 1rem !important;
-        font-weight: 600 !important;
-        width: 100% !important;
-    }
-    button[kind="secondary"]:hover {
-        background: rgba(139, 92, 246, 0.1) !important;
-        border-color: #8b5cf6 !important;
-    }
-    
-    /* Hide the Streamlit Expander styling for signup */
+
+    /* Sign Up Expander Overrides */
     div[data-testid="stExpander"] {
-        background: transparent !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px !important;
+        margin-top: 1.5rem !important;
     }
+    div[data-testid="stExpanderSummary"] {
+        font-weight: 700 !important;
+        color: #4f46e5 !important;
+    }
+
+    /* Helper Classes */
+    .login-card-left { display: block; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -680,29 +700,23 @@ def render_login_page():
     
     with left_col:
         st.markdown(f"""
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom: 2rem;">
-                <div style="width:40px;height:40px;background:linear-gradient(135deg, #ec4899, #8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px rgba(236,72,153,0.4);">
-                    <span style="font-size:1.3rem;">🧠</span>
-                </div>
-                <div>
-                    <div style="font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:700;color:white;line-height:1;">HireMind AI</div>
-                    <div style="font-size:0.75rem;color:#94a3b8;letter-spacing:0.05em;">Autonomous HR OS</div>
-                </div>
+            <div class="login-card-left">
+                <div class="login-brand-logo">🧠</div>
+                <h1 class="login-title-text">Welcome Back</h1>
+                <p class="login-subtitle-text">Enter your details to access your {role} portal</p>
             </div>
-            <h1 class="login-heading">Welcome <span class="highlight">back</span></h1>
-            <p class="login-subtitle">Sign in to your {role} account</p>
         """, unsafe_allow_html=True)
         
         with st.form("login_form_premium"):
-            email = st.text_input("Email Address", placeholder="alex@example.com")
+            email = st.text_input("Email Address", placeholder="name@company.com")
             password = st.text_input("Password", type="password", placeholder="••••••••")
             
             st.markdown("""
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.2rem; margin-bottom:1.5rem;">
-                    <label style="color:#94a3b8; font-size:0.85rem; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                        <input type="checkbox" checked style="accent-color:#8b5cf6; width:14px; height:14px;"> Remember me
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; margin-top:0.5rem;">
+                    <label style="display:flex; align-items:center; gap:8px; color:#64748b; font-size:0.9rem; cursor:pointer;">
+                        <input type="checkbox" checked style="width:16px; height:16px; accent-color:#4f46e5;"> Remember me
                     </label>
-                    <a href="#" style="color:#8b5cf6; text-decoration:none; font-size:0.85rem; font-weight:500;">Forgot password?</a>
+                    <a href="#" style="color:#4f46e5; text-decoration:none; font-size:0.9rem; font-weight:600;">Forgot password?</a>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -729,29 +743,47 @@ def render_login_page():
                 
         if role == "candidate":
             st.markdown("""
-                <div style="display:flex; align-items:center; gap:10px; margin: 2rem 0 1rem;">
-                    <div style="flex:1; height:1px; background:rgba(255,255,255,0.1);"></div>
-                    <div style="color:#64748b; font-size:0.85rem; font-weight:500;">OR</div>
-                    <div style="flex:1; height:1px; background:rgba(255,255,255,0.1);"></div>
+                <div style="display:flex; align-items:center; gap:16px; margin: 3rem 0 1rem;">
+                    <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+                    <div style="color:#94a3b8; font-size:0.85rem; font-weight:700;">NEW TO HIREMIND?</div>
+                    <div style="flex:1; height:1px; background:#e2e8f0;"></div>
                 </div>
             """, unsafe_allow_html=True)
             render_signup("candidate")
 
     with right_col:
+        # User requested image path: assets/WhatsApp Image 2026-05-07 at 4.29.58 PM.jpeg
+        # We use a path-safe way or base64 if needed, but since it's local we can use the file path relative to the app or absolute
+        img_path = r"assets/WhatsApp Image 2026-05-07 at 4.29.58 PM.jpeg"
+        
         st.markdown(f"""
-            <img src="file:///C:/Users/LENOVO/.gemini/antigravity/brain/29d7a03e-26a0-4d00-bd20-6b40eca55824/ai_login_illustration_1778144662001.png" style="width:100%; max-width:280px; border-radius:16px; box-shadow:0 0 40px rgba(139,92,246,0.25); margin-bottom:1rem; border:1px solid rgba(255,255,255,0.1);">
-            <h2 class="right-heading">New here?</h2>
-            <p class="right-desc">Create an account to explore AI-powered hiring, apply for jobs, and more.</p>
+            <div style="position:relative; width:100%; display:flex; justify-content:center; align-items:center;">
+                <!-- Glowing Aura Background -->
+                <div style="position:absolute; width:280px; height:280px; background:radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%); filter:blur(40px); z-index:0;"></div>
+                
+                <img src="app/static/{img_path}" class="feature-img" alt="HireMind AI Illustration" 
+                     style="position:relative; z-index:1; border:1px solid rgba(99, 102, 241, 0.2); box-shadow: 0 0 30px rgba(99, 102, 241, 0.15); mix-blend-mode: multiply; opacity: 0.95;">
+            </div>
             
-            <div class="right-features">
-                <div><span style="font-size:1.2rem; color:#a855f7;">🧠</span> <span>AI-Powered Screening</span></div>
-                <div><span style="font-size:1.2rem; color:#3b82f6;">⚡</span> <span>Smart Job Matching</span></div>
-                <div><span style="font-size:1.2rem; color:#22c55e;">🛡️</span> <span>Secure & Private</span></div>
+            <h2 class="right-title" style="margin-top: 1.5rem;">Smart Hiring, Powered by AI</h2>
+            <p class="right-text">Experience the future of recruitment with our autonomous AI ecosystem.</p>
+            
+            <div class="feat-pill-list">
+                <div class="feat-pill">
+                    <span style="font-size:1.2rem;">✨</span>
+                    <span>AI Resume Analysis</span>
+                </div>
+                <div class="feat-pill">
+                    <span style="font-size:1.2rem;">🎙️</span>
+                    <span>Real-time Voice Interviews</span>
+                </div>
+                <div class="feat-pill">
+                    <span style="font-size:1.2rem;">🛡️</span>
+                    <span>Proctored Assessments</span>
+                </div>
             </div>
         """, unsafe_allow_html=True)
-        
-        if st.button("Create Account", key="create_account_btn", use_container_width=True):
-            pass
+
 
 
 def render_login(role):
@@ -773,7 +805,7 @@ def render_login(role):
                 st.error("Invalid email or password.")
 
 def render_signup(role):
-    with st.expander("✨ Create your Account", expanded=False):
+    with st.expander("✨ New here? Create your Account", expanded=False):
         with st.form(f"signup_form_{role}"):
             st.markdown("""
                 <style>
@@ -781,16 +813,16 @@ def render_signup(role):
                 </style>
             """, unsafe_allow_html=True)
             
-            name = st.text_input("Full Name", placeholder="e.g. Alex Rivera")
-            email = st.text_input("Email Address", placeholder="alex@example.com")
+            name = st.text_input("Full Name", placeholder="e.g. Bhavesh Chaudhary")
+            email = st.text_input("Email Address", placeholder="name@example.com")
             
             c1, c2 = st.columns(2)
             with c1:
                 password = st.text_input("Password", type="password", placeholder="••••••••")
             with c2:
-                confirm = st.text_input("Confirm", type="password", placeholder="••••••••")
+                confirm = st.text_input("Confirm Password", type="password", placeholder="••••••••")
                 
-            if st.form_submit_button("Create Account", use_container_width=True, type="primary"):
+            if st.form_submit_button("Create Account →", use_container_width=True, type="primary"):
                 if password != confirm:
                     st.error("Passwords do not match.")
                 elif not name or not email or not password:
@@ -801,6 +833,7 @@ def render_signup(role):
                         st.success("Account created! You can now sign in above.")
                     else:
                         st.error("Account already exists with this email.")
+
 
 def render_candidate_dashboard():
     st.title("🎓 Candidate Dashboard")
