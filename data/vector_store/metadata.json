@@ -1,16 +1,37 @@
 [
   {
-    "text": "Communication, CSS, Flask, HTML, Leadership, Lua, Machine Learning, Problem Solving, Python, React, Scala, SQL, SQLite",
+    "text": "CSS, HTML, Java, JavaScript, Lua, Machine Learning, Matplotlib, NumPy, Pandas, Python, Seaborn",
     "section": "skills",
     "source": "resume",
-    "name": "Aiml Engineerkartik Gupta",
+    "name": null,
     "chunk_id": 0
   },
   {
-    "text": "Currently Pursuing",
-    "section": "education",
+    "text": "EDUCATIONPROFILE\n2nd-year CSE student at Thakur Shyamnarayan Engineering College,\nMumbai aspiring to become an AIML engineer. Passionate about\nexperimenting with AI/ML tools, rapid prototyping, and converting ideas\ninto working projects.\nPersonal Portfolio Website\nCar Price Prediction (Machine Learning Project)\nHintify - AI Coding Mentor (In-progress)",
+    "section": "projects",
     "source": "resume",
-    "name": "Aiml Engineerkartik Gupta",
+    "name": null,
     "chunk_id": 1
+  },
+  {
+    "text": "Hintify - AI Coding Mentor (In-progress)\nBuilt a interactive personal portfolio showcasing skills and projects\nImplemented neon aesthetics, and smooth UI transitions for better UX\nIntegrated for a modern and visually appealing interface\nDeployed for cross-device responsiveness\nTech: HTML, CSS, JavaScript, Three.js Built an ML regression model to estimate used car prices",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 2
+  },
+  {
+    "text": "Performed preprocessing & feature encoding\nTools: Python, Pandas, NumPy, Scikit-Learn\nAI tool that gives hints instead of full code to improve problem-solving\nskills.\nSupports multi-level hints (concept, logic, error direction) for learning.\nBackend built with FastAPI + prompt control to prevent code output.\nDesigned to reduce AI dependency & cheating in coding education.",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 3
+  },
+  {
+    "text": "Designed to reduce AI dependency & cheating in coding education.\nBachelor of Engineering (B.E.) - CSE-AIML\nUniversity of Mumbai (MU) - 2024-2028 (Currently Pursuing)\nCompetitive Exams\nJEE Mains - 90.81 Percentile | MHT-CET - 84 Percentile\nSSC (2022): 93.40% I HSC(2024):75.00%First Year SGPA: 8.46Community Service Oriented\nAnalytical Thinking\nLeadership & Coordination\nFast Learner",
+    "section": "projects",
+    "source": "resume",
+    "name": null,
+    "chunk_id": 4
   }
 ]

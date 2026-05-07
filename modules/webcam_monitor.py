@@ -255,6 +255,12 @@ class IdentityCaptureProcessor(VideoProcessorBase):
 
         h, w = img.shape[:2]
 
+        # 1. Flip frame for natural mirror view (user expectation)
+        try:
+            img = cv2.flip(img, 1)
+        except Exception:
+            pass
+
         # ── Rule-of-thirds grid ──────────────────────────────────────────────
         grid_col = (160, 185, 215)   # muted steel-blue (BGR)
         cv2.line(img, (w // 3,     0), (w // 3,     h), grid_col, 1, cv2.LINE_AA)
@@ -317,11 +323,15 @@ class IdentityCaptureProcessor(VideoProcessorBase):
         Called from the Streamlit main thread when user clicks 'Capture Photo'.
         """
         with self._lock:
-            frame = self._latest_frame
-        if frame is None or not _CV2_AVAILABLE:
+            if self._latest_frame is None:
+                return None
+            frame = self._latest_frame.copy()
+
+        try:
+            success, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
+            return buf.tobytes() if success else None
+        except Exception:
             return None
-        success, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
-        return buf.tobytes() if success else None
 
 
 def _init_monitor_state():
@@ -393,7 +403,13 @@ def render_webcam_monitor():
         key="interview_proctoring",
         mode=WebRtcMode.SENDRECV,
         video_processor_factory=FaceDetectionProcessor,
-        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+        rtc_configuration={
+            "iceServers": [
+                {"urls": ["stun:stun.l.google.com:19302"]},
+                {"urls": ["stun:stun1.l.google.com:19302"]},
+                {"urls": ["stun:stun2.l.google.com:19302"]}
+            ]
+        },
         media_stream_constraints={
             "video": {
                 "width": {"ideal": 640},

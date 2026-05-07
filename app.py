@@ -49,124 +49,129 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
-
 # --- CUSTOM CSS ---
 def local_css():
     st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+    /* Global Dark Theme */
+    .stApp {
+        background: #020617 !important;
+        color: #f8fafc !important;
     }
 
-    .main {
-        background-color: #f8fafc;
-    }
-
-    /* Header Styling */
-    .header-container {
-        text-align: center;
-        padding: 3rem 0;
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        border-bottom: 1px solid #e2e8f0;
-        margin-bottom: 2rem;
-        border-radius: 0 0 24px 24px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        color: white;
-    }
-
-    .main-title {
-        color: #f8fafc;
-        font-size: 3rem;
-        font-weight: 800;
-        margin-bottom: 0.5rem;
-    }
-
-    .subtitle {
-        color: #94a3b8;
-        font-size: 1.2rem;
-        max-width: 600px;
-        margin: 0 auto;
-    }
-
-    /* Metric Card Styling */
-    .metric-card-container {
-        background: white;
-        padding: 2rem;
-        border-radius: 16px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        text-align: center;
-        transition: transform 0.2s;
+    /* Typography */
+    html, body, [class*="css"], .stText, .stMarkdown, p, label {
+        font-family: 'Inter', sans-serif !important;
+        line-height: 1.6 !important;
     }
     
-    .metric-card-container:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    h1, h2, h3, h4, h5, h6, .main-title {
+        font-family: 'Space Grotesk', sans-serif !important;
+        color: white !important;
     }
 
-    .metric-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #2563eb;
-        margin: 10px 0;
+    /* Glassmorphism Containers */
+    div[data-testid="stExpander"], .stContainer, .stForm {
+        background: rgba(255, 255, 255, 0.02) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(10px) !important;
+        padding: 1.5rem !important;
     }
 
-    .metric-label {
-        color: #64748b;
-        font-size: 1rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+    /* Inputs Styling (Light fields with Dark text) */
+    .stTextInput input, .stTextArea textarea, .stSelectbox [data-baseweb="select"], div[data-baseweb="base-input"] {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #020617 !important;
+        border-radius: 12px !important;
+    }
+    input::placeholder, textarea::placeholder {
+        color: #64748b !important;
+        opacity: 1 !important;
     }
 
-    /* Skill Tags */
-    .tag {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        border-radius: 12px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin: 0.3rem;
+    /* File Uploader Fix */
+    [data-testid="stFileUploadDropzone"] {
+        background: #ffffff !important;
+        border: 2px dashed #cbd5e1 !important;
+    }
+    [data-testid="stFileUploadDropzone"],
+    [data-testid="stFileUploadDropzone"] div,
+    [data-testid="stFileUploadDropzone"] span,
+    [data-testid="stFileUploadDropzone"] p,
+    [data-testid="stFileUploadDropzone"] small,
+    [data-testid="stFileUploadDropzone"] label {
+        color: #000000 !important;
+    }
+    [data-testid="stFileUploadDropzone"] button,
+    [data-testid="stFileUploadDropzone"] button * {
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #cbd5e1 !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stFileUploadDropzone"] button:hover {
+        background: #f1f5f9 !important;
     }
 
-    .tag-match { background-color: #ecfdf5; color: #059669; border: 1px solid #10b981; }
-    .tag-missing { background-color: #fff1f2; color: #e11d48; border: 1px solid #f43f5e; }
-
-    /* Action Button Customization */
-    div.stButton > button:first-child {
-        background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem 3rem;
-        font-size: 1.1rem;
-        font-weight: 700;
-        border: none;
-        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
-        transition: all 0.3s ease;
-        display: block;
-        margin: 2rem auto;
-    }
-
-    div.stButton > button:first-child:hover {
-        background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
-        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
-        transform: scale(1.02);
-    }
-
-    /* Input Sections */
-    .stExpander {
-        border-radius: 16px !important;
+    /* Alerts and Info boxes */
+    [data-testid="stAlert"] {
+        background: #f8fafc !important;
         border: 1px solid #e2e8f0 !important;
-        background-color: white !important;
-        box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05) !important;
+    }
+    [data-testid="stAlert"] * {
+        color: #0f172a !important;
     }
 
-    /* Ensure text within input areas and labels is visible (black/dark) */
-    .stExpander p, .stExpander label, .stExpander div {
-        color: #1e293b !important;
+    /* Primary Buttons (Dark background -> White text) */
+    div.stButton > button[kind="primary"], div[data-testid="stFormSubmitButton"] > button[kind="primary"] {
+        background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.6rem 2rem !important;
+        font-weight: 700 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2) !important;
     }
+    
+    div.stButton > button[kind="primary"]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4) !important;
+    }
+
+    /* Secondary / Default Buttons (Light background -> Dark text) */
+    div.stButton > button:not([kind="primary"]), div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) {
+        background: #f8fafc !important;
+        color: #020617 !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        padding: 0.6rem 2rem !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+    div.stButton > button:not([kind="primary"]):hover {
+        background: #e2e8f0 !important;
+        border-color: #94a3b8 !important;
+    }
+
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background: rgba(15, 23, 42, 0.98) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Metrics & Badges */
+    [data-testid="stMetricValue"] {
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-weight: 700 !important;
+    }
+
+    /* Hide redundant elements */
+    #MainMenu, footer, header { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -738,27 +743,30 @@ def render_verification_page():
         # ── Step indicator ────────────────────────────────────────────────────
         st.markdown("""
             <div style="display:flex;align-items:flex-start;justify-content:center;
-                        gap:0;margin:1.8rem 0 2.2rem;">
+                        gap:1rem;margin:1.8rem 0 2.2rem;flex-wrap:wrap;">
                 <div style="text-align:center;min-width:90px;">
                     <div style="width:44px;height:44px;border-radius:50%;
                                 background:#2563eb;color:white;font-weight:700;
-                                font-size:1.1rem;line-height:44px;margin:0 auto;">1</div>
+                                font-size:1.1rem;line-height:44px;margin:0 auto;
+                                overflow:hidden;">1</div>
                     <div style="font-size:0.75rem;color:#2563eb;font-weight:600;
                                 margin-top:0.35rem;">Personal<br>Details</div>
                 </div>
-                <div style="flex:1;border-top:2px dashed #cbd5e1;margin-top:22px;"></div>
+                <div style="flex:1;border-top:2px dashed #cbd5e1;margin-top:22px;min-width:20px;"></div>
                 <div style="text-align:center;min-width:90px;">
                     <div style="width:44px;height:44px;border-radius:50%;
                                 background:#2563eb;color:white;font-weight:700;
-                                font-size:1.1rem;line-height:44px;margin:0 auto;">2</div>
+                                font-size:1.1rem;line-height:44px;margin:0 auto;
+                                overflow:hidden;">2</div>
                     <div style="font-size:0.75rem;color:#2563eb;font-weight:600;
                                 margin-top:0.35rem;">Live<br>Photo</div>
                 </div>
-                <div style="flex:1;border-top:2px dashed #cbd5e1;margin-top:22px;"></div>
+                <div style="flex:1;border-top:2px dashed #cbd5e1;margin-top:22px;min-width:20px;"></div>
                 <div style="text-align:center;min-width:90px;">
                     <div style="width:44px;height:44px;border-radius:50%;
                                 background:#94a3b8;color:white;font-weight:700;
-                                font-size:1.1rem;line-height:44px;margin:0 auto;">3</div>
+                                font-size:1.1rem;line-height:44px;margin:0 auto;
+                                overflow:hidden;">3</div>
                     <div style="font-size:0.75rem;color:#94a3b8;font-weight:600;
                                 margin-top:0.35rem;">Confirm &amp;<br>Proceed</div>
                 </div>
@@ -894,37 +902,52 @@ def render_verification_page():
             # ── STEP 2: Live webcam with OpenCV overlay or fallback camera_input ──
             # ── Face Alignment Guide + Live Webcam (OpenCV overlay via WebRTC) ──
             _use_webrtc_capture = (
-                _ID_WEBRTC_OK and _ID_CV2_OK
+                _ID_WEBRTC_OK
                 and _id_webrtc_streamer is not None
                 and _IdWebRtcMode is not None
             )
 
-            if _use_webrtc_capture:
-                st.markdown(
-                    """
-                    <div style='background:#eff6ff;border-left:4px solid #3b82f6;
-                                border-radius:0 10px 10px 0;padding:0.8rem 1rem;
-                                margin-bottom:0.8rem;font-size:0.88rem;color:#1e3a8a;'>
-                        <strong>📹 Live Camera</strong> — the oval &amp; grid guide are drawn
-                        directly on the feed in real time. Centre your face, then click
-                        <strong>📸 Capture Photo</strong>.
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+            # Control camera visibility to ensure user gesture initiation
+            if "verif_camera_on" not in st.session_state:
+                st.session_state["verif_camera_on"] = False
 
-                ctx = _id_webrtc_streamer(
-                    key="identity_capture",
-                    mode=_IdWebRtcMode.SENDRECV,
-                    video_processor_factory=IdentityCaptureProcessor,
-                    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-                    media_stream_constraints={
-                        "video": {"width": {"ideal": 640}, "height": {"ideal": 480}, "frameRate": {"ideal": 20}},
-                        "audio": False,
-                    },
-                    async_processing=True,
-                    desired_playing_state=True,
-                )
+            if _use_webrtc_capture:
+                if not st.session_state["verif_camera_on"]:
+                    st.info("💡 **Camera Access Required.** Click the button below to start the verification feed.")
+                    if st.button("🔌 Start Verification Camera", use_container_width=True, type="primary"):
+                        st.session_state["verif_camera_on"] = True
+                        st.rerun()
+                else:
+                    st.markdown(
+                        """
+                        <div style='background:#f0f9ff;border-left:4px solid #0ea5e9;
+                                    border-radius:0 10px 10px 0;padding:0.8rem 1rem;
+                                    margin-bottom:0.8rem;font-size:0.88rem;color:#0369a1;'>
+                            <strong>📹 Live Feed Active</strong> — Centre your face within the guide oval, 
+                            then click <strong>📸 Capture Photo</strong>.
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                    ctx = _id_webrtc_streamer(
+                        key="identity_capture",
+                        mode=_IdWebRtcMode.SENDRECV,
+                        video_processor_factory=IdentityCaptureProcessor,
+                        rtc_configuration={
+                            "iceServers": [
+                                {"urls": ["stun:stun.l.google.com:19302"]},
+                                {"urls": ["stun:stun1.l.google.com:19302"]},
+                                {"urls": ["stun:stun2.l.google.com:19302"]}
+                            ]
+                        },
+                        media_stream_constraints={
+                            "video": {"width": {"ideal": 640}, "height": {"ideal": 480}, "frameRate": {"ideal": 24}},
+                            "audio": False,
+                        },
+                        async_processing=True,
+                        desired_playing_state=True,
+                    )
 
                 cap_col, ret_col = st.columns([1, 1])
                 with cap_col:

@@ -178,10 +178,16 @@ def render_voice_interview():
 
     # Webcam proctoring ────────────────────────────────────────────────────────
     with col_cam:
-        monitor_ok, _ = render_webcam_monitor()
+        monitor_ok, webcam_active = render_webcam_monitor()
         if not monitor_ok:
             _handle_proctoring_violation()
             return
+        
+        # Helper to reset camera if it hangs
+        if webcam_active:
+            if st.button("🔄 Reset Camera", key="reset_cam_voice", use_container_width=True):
+                st.session_state["webcam_started"] = False
+                st.rerun()
 
     current_q = questions[q_idx]
     q_type    = current_q.get("type", "general")
@@ -212,7 +218,11 @@ def render_voice_interview():
             st.markdown("**🔊 Listen to the question:**")
             st.audio(tts_bytes, format="audio/mp3", autoplay=True)
         else:
-            st.info("🔇 Audio unavailable — read the question above.")
+            from modules.voice_interview import _GTTS_AVAILABLE
+            if not _GTTS_AVAILABLE:
+                st.warning("🔇 **Voice Engine Unavailable** — The `gTTS` library is not installed. Please read the question text.")
+            else:
+                st.info("🔇 **Audio Processing...** — Read the question above while the voice engine initializes.")
 
     # Answer recording ─────────────────────────────────────────────────────────
     with col_a:
