@@ -54,11 +54,12 @@ def apply_interview_styles():
     }
 
     .q-header {
-        background: linear-gradient(90deg, #1e293b, #334155);
-        color: white;
-        padding: 0.8rem 1.2rem;
-        border-radius: 10px;
-        margin-bottom: 1rem;
+        background: #f8fafc;
+        color: #1e293b;
+        padding: 1.5rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e2e8f0;
     }
 
     .badge-coding     { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:600; }
@@ -72,87 +73,90 @@ def apply_interview_styles():
 
 def render_mode_selection():
     """Structured mode selection screen."""
-    apply_interview_styles()
+    with st.container():
+        st.markdown('<div class="verif-marker-header"></div>', unsafe_allow_html=True)
+        apply_interview_styles()
 
-    st.markdown("""
-    <div class="q-header">
-        <h2 style="margin:0; font-size:1.6rem;">🎙️ Interview Configuration</h2>
-        <p style="margin:0.3rem 0 0; color:#94a3b8;">Select your interview mode. This selection is final.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col_norm, col_ai = st.columns(2)
-
-    with col_norm:
         st.markdown("""
-        <div style="background:white;padding:1.5rem;border-radius:12px;border:1px solid #e2e8f0;height:200px;">
-            <h4 style="color:#1e293b;margin-top:0;">⚙️ Normal Mode</h4>
-            <ul style="color:#64748b;font-size:0.9rem;line-height:1.8;">
-                <li>Predefined 10-question bank</li>
-                <li>7 questions per session</li>
-                <li>Rule-based + RapidFuzz evaluation</li>
-                <li>No external API dependencies</li>
-            </ul>
+        <div class="q-header">
+            <h2 style="margin:0; font-size:1.6rem;">🎙️ Interview Configuration</h2>
+            <p style="margin:0.3rem 0 0; color:#475569;">Select your interview mode. This selection is final.</p>
         </div>
         """, unsafe_allow_html=True)
 
-    with col_ai:
-        st.markdown("""
-        <div style="background:white;padding:1.5rem;border-radius:12px;border:1px solid #3b82f6;height:200px;">
-            <h4 style="color:#2563eb;margin-top:0;">🤖 AI Mode</h4>
-            <ul style="color:#64748b;font-size:0.9rem;line-height:1.8;">
-                <li>Gemini-generated personalized questions</li>
-                <li>AI-powered deep evaluation</li>
-                <li>Resume-tailored skill assessment</li>
-                <li>Requires valid Gemini API key</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        col_norm, col_ai = st.columns(2)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+        with col_norm:
+            st.markdown("""
+            <div style="background:white;padding:1.5rem;border-radius:12px;border:1px solid #e2e8f0;height:200px;">
+                <h4 style="color:#1e293b;margin-top:0;">⚙️ Normal Mode</h4>
+                <ul style="color:#64748b;font-size:0.9rem;line-height:1.8;">
+                    <li>Predefined 10-question bank</li>
+                    <li>7 questions per session</li>
+                    <li>Rule-based + RapidFuzz evaluation</li>
+                    <li>No external API dependencies</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
-    selected_mode = st.radio(
-        "Select Interview Mode:",
-        ["⚙️ Normal Mode", "🤖 AI Mode"],
-        index=0,
-        horizontal=True,
-        key="mode_radio_selector",
-    )
+        with col_ai:
+            st.markdown("""
+            <div style="background:white;padding:1.5rem;border-radius:12px;border:1px solid #3b82f6;height:200px;">
+                <h4 style="color:#2563eb;margin-top:0;">🤖 AI Mode</h4>
+                <ul style="color:#64748b;font-size:0.9rem;line-height:1.8;">
+                    <li>Gemini-generated personalized questions</li>
+                    <li>AI-powered deep evaluation</li>
+                    <li>Resume-tailored skill assessment</li>
+                    <li>Requires valid Gemini API key</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
-    if st.button("🚀 Start Interview Sequence", use_container_width=True, type="primary"):
-        mode = "normal" if "Normal" in selected_mode else "ai"
+        selected_mode = st.radio(
+            "Select Interview Mode:",
+            ["⚙️ Normal Mode", "🤖 AI Mode"],
+            index=0,
+            horizontal=True,
+            key="mode_radio_selector",
+        )
 
-        if mode == "normal":
-            selected_questions = select_interview_questions()
-            if "interview_session_id" not in st.session_state:
-                candidate_id = st.session_state.get("candidate_id", 0)
-                mode = st.session_state.get("interview_mode", "normal")
-                job_id = st.session_state.get("current_job_id", 0)
-                st.session_state["interview_session_id"] = create_interview_session(candidate_id, mode, job_id)
-            st.session_state["selected_questions"] = selected_questions
-            st.session_state["interview_mode"]  = "normal"
-            st.session_state["interview_answers"] = {}
-            st.session_state["current_q_idx"]   = 0
-            st.session_state["current_page"]    = "interview"
-            st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        else:
-            api_key = st.session_state.get("GEMINI_API_KEY", "")
-            if not api_key:
-                st.error("❌ Gemini API key is required for AI Mode. Check your `.env` file.")
-                return
-            with st.spinner("🤖 Gemini is crafting your personalised interview..."):
-                selected_questions = generate_ai_questions(
-                    st.session_state.get("parsed_resume", {}), api_key
-                )
-            st.session_state["selected_questions"] = selected_questions
-            st.session_state["interview_mode"]  = "ai"
-            st.session_state["interview_answers"] = {}
-            st.session_state["current_q_idx"]   = 0
-            st.session_state["current_page"]    = "interview"
-            st.rerun()
+        if st.button("🚀 Start Interview Sequence", use_container_width=True, type="primary"):
+            mode = "normal" if "Normal" in selected_mode else "ai"
+
+            if mode == "normal":
+                selected_questions = select_interview_questions()
+                if "interview_session_id" not in st.session_state:
+                    candidate_id = st.session_state.get("candidate_id", 0)
+                    # We need to import create_interview_session here or it should be in scope
+                    from modules.candidate_db import create_interview_session
+                    job_id = st.session_state.get("current_job_id", 0)
+                    st.session_state["interview_session_id"] = create_interview_session(candidate_id, mode, job_id)
+                st.session_state["selected_questions"] = selected_questions
+                st.session_state["interview_mode"]  = "normal"
+                st.session_state["interview_answers"] = {}
+                st.session_state["current_q_idx"]   = 0
+                st.session_state["current_page"]    = "interview"
+                st.rerun()
+
+            else:
+                api_key = st.session_state.get("GEMINI_API_KEY", "")
+                if not api_key:
+                    st.error("❌ Gemini API key is required for AI Mode. Check your `.env` file.")
+                    return
+                with st.spinner("🤖 Gemini is crafting your personalised interview..."):
+                    selected_questions = generate_ai_questions(
+                        st.session_state.get("parsed_resume", {}), api_key
+                    )
+                st.session_state["selected_questions"] = selected_questions
+                st.session_state["interview_mode"]  = "ai"
+                st.session_state["interview_answers"] = {}
+                st.session_state["current_q_idx"]   = 0
+                st.session_state["current_page"]    = "interview"
+                st.rerun()
 
 
 # ── INTERVIEW INTERFACE ───────────────────────────────────────────────────────

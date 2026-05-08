@@ -158,6 +158,75 @@ def local_css():
         border-color: #94a3b8 !important;
     }
 
+    /* White Workspace targeting via Marker */
+    div[data-testid="stVerticalBlock"]:has(.eval-marker),
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) {
+        background-color: #ffffff !important;
+        color: #020617 !important;
+        padding: 2.5rem !important;
+        border-radius: 24px !important;
+        border: 1px solid #e2e8f0 !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 2.5rem !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    }
+    
+    .eval-marker {
+        display: none !important;
+    }
+    
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) h1,
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) h2,
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) h3, 
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) h4, 
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) p, 
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) label,
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) .stMarkdown,
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) h1, 
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) h2, 
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) h3, 
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) h4, 
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) p, 
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) label,
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) .stMarkdown {
+        color: #0f172a !important;
+    }
+
+    /* Adjust Expanders and Containers inside White Workspace */
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) div[data-testid="stExpander"],
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) .stContainer,
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) div[data-testid="stExpander"],
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) .stContainer {
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: none !important;
+    }
+    
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) div[data-testid="stExpander"] *,
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) .stContainer *,
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) div[data-testid="stExpander"] *,
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) .stContainer * {
+        color: #1e293b !important;
+    }
+
+    /* Fix for metrics inside white workspace */
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) [data-testid="stMetricValue"],
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) [data-testid="stMetricValue"] {
+        color: #2563eb !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(.eval-marker) [data-testid="stMetricLabel"],
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) [data-testid="stMetricLabel"] {
+        color: #64748b !important;
+    }
+
+    /* Fix for tabs inside white workspace */
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) .stTabs [data-baseweb="tab-list"] button p {
+        color: #64748b !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(.verif-marker-header) .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] p {
+        color: #2563eb !important;
+    }
+
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background: rgba(15, 23, 42, 0.98) !important;
@@ -186,181 +255,185 @@ def display_header():
     """, unsafe_allow_html=True)
 
 def display_input_workspace():
-    st.markdown("### 📥 Evaluation Workspace")
-    
-    col_input, _ = st.columns([2, 1])
-    
-    with col_input:
-        # Resume Section
-        with st.expander("👤 Upload Candidate Resume", expanded=True):
-            st.info("AI Analysis works best with clean text-based PDF/DOCX files.")
-            resume_file = st.file_uploader(
-                "Drop resume here",
-                type=["pdf", "docx", "txt"],
-                label_visibility="collapsed",
-                key="resume_uploader",
-            )
+    with st.container():
+        st.markdown('<div class="eval-marker"></div>', unsafe_allow_html=True)
+        st.markdown("### 📥 Evaluation Workspace")
+        
+        col_input, _ = st.columns([2, 1])
+        
+        with col_input:
+            # Resume Section
+            with st.expander("👤 Upload Candidate Resume", expanded=True):
+                st.info("AI Analysis works best with clean text-based PDF/DOCX files.")
+                resume_file = st.file_uploader(
+                    "Drop resume here",
+                    type=["pdf", "docx", "txt"],
+                    label_visibility="collapsed",
+                    key="resume_uploader",
+                )
 
-            if resume_file:
-                # REQUIREMENT: Enforce 5MB limit
-                if resume_file.size > 5 * 1024 * 1024:
-                    st.error("File size exceeds the allowed limit (5MB). Please upload a smaller resume.")
-                else:
-                    # Helper to clear stale analysis data on new upload
-                    def clear_stale_results():
-                        for key in ["match_result", "llm_result", "ats_result", "fraud_result", "rec_result", "stage_1_complete", "verification_complete", "embedding_result"]:
-                            if key in st.session_state: st.session_state[key] = None
-                    
-                    if st.session_state.get("last_resume_name") != resume_file.name:
-                        clear_stale_results()
-                        with st.spinner("⚙️ Extracting and processing resume..."):
-                            result = process_resume(resume_file)
-                        st.session_state["resume_result"]    = result
-                        st.session_state["last_resume_name"] = resume_file.name
+                if resume_file:
+                    # REQUIREMENT: Enforce 10MB limit
+                    if resume_file.size > 10 * 1024 * 1024:
+                        st.error("File size exceeds the allowed limit (10MB). Please upload a smaller resume.")
+                    else:
+                        # Helper to clear stale analysis data on new upload
+                        def clear_stale_results():
+                            for key in ["match_result", "llm_result", "ats_result", "fraud_result", "rec_result", "stage_1_complete", "verification_complete", "embedding_result"]:
+                                if key in st.session_state: st.session_state[key] = None
+                        
+                        if st.session_state.get("last_resume_name") != resume_file.name:
+                            clear_stale_results()
+                            with st.spinner("⚙️ Extracting and processing resume..."):
+                                result = process_resume(resume_file)
+                            st.session_state["resume_result"]    = result
+                            st.session_state["last_resume_name"] = resume_file.name
+
+                            if result.get("status") == "success":
+                                with st.spinner("🧠 Parsing resume with NLP..."):
+                                    parsed = build_structured_json(result["cleaned_text"], profile_photo=result.get("profile_photo"))
+                                st.session_state["parsed_resume"] = parsed
+                                with st.spinner("🔢 Generating vector embeddings..."):
+                                    emb_result = process_embeddings(parsed, source_label="resume")
+                                st.session_state["embedding_result"] = emb_result
+
+                        result = st.session_state.get("resume_result", {})
 
                         if result.get("status") == "success":
-                            with st.spinner("🧠 Parsing resume with NLP..."):
-                                parsed = build_structured_json(result["cleaned_text"], profile_photo=result.get("profile_photo"))
-                            st.session_state["parsed_resume"] = parsed
-                            with st.spinner("🔢 Generating vector embeddings..."):
-                                emb_result = process_embeddings(parsed, source_label="resume")
-                            st.session_state["embedding_result"] = emb_result
+                            st.success(result["message"])
+                            col_a, col_b = st.columns(2)
+                            col_a.metric("📝 Word Count",  f"{result['word_count']:,}")
+                            col_b.metric("🔢 Char Count",  f"{result['char_count']:,}")
 
-                    result = st.session_state.get("resume_result", {})
+                            with st.expander("📄 Preview Extracted Text (first 1000 chars)"):
+                                st.code(result["cleaned_text"][:1000], language=None)
 
-                    if result.get("status") == "success":
-                        st.success(result["message"])
-                        col_a, col_b = st.columns(2)
-                        col_a.metric("📝 Word Count",  f"{result['word_count']:,}")
-                        col_b.metric("🔢 Char Count",  f"{result['char_count']:,}")
+                            st.caption(f"📁 Saved to: `{result['raw_path'].name}`")
+                        else:
+                            st.warning(result.get("message", "Processing failed."))
 
-                        with st.expander("📄 Preview Extracted Text (first 1000 chars)"):
-                            st.code(result["cleaned_text"][:1000], language=None)
-
-                        st.caption(f"📁 Saved to: `{result['raw_path'].name}`")
-                    else:
-                        st.warning(result.get("message", "Processing failed."))
-
-        # --- Parsed Resume Display (STRUCTURED) ---
-        parsed = st.session_state.get("parsed_resume")
-        if parsed:
-            with st.expander("🧩 Candidate Professional Profile", expanded=True):
-                # ── Header: Identity & Contact ──
-                st.markdown("#### 👤 Primary Identification")
-                c1, c2, c3 = st.columns([2, 2, 2])
-                with c1:
-                    st.markdown(f"**Name**  \n{parsed.get('name') or '—'}")
-                with c2:
-                    st.markdown(f"**Email**  \n{parsed.get('email') or '—'}")
-                with c3:
-                    st.markdown(f"**Phone**  \n{parsed.get('phone') or '—'}")
-                
-                st.markdown(f"**📍 Location:** {parsed.get('location') or 'Not specified'}")
-                st.markdown("<br>", unsafe_allow_html=True)
-
-                # ── Summary / Objective ──
-                summary = parsed.get("summary")
-                if summary:
-                    with st.container(border=True):
-                        st.markdown("**📝 Professional Summary**")
-                        st.write(summary)
+            # --- Parsed Resume Display (STRUCTURED) ---
+            parsed = st.session_state.get("parsed_resume")
+            if parsed:
+                with st.expander("🧩 Candidate Professional Profile", expanded=True):
+                    # ── Header: Identity & Contact ──
+                    st.markdown("#### 👤 Primary Identification")
+                    c1, c2, c3 = st.columns([2, 2, 2])
+                    with c1:
+                        st.markdown(f"**Name**  \n{parsed.get('name') or '—'}")
+                    with c2:
+                        st.markdown(f"**Email**  \n{parsed.get('email') or '—'}")
+                    with c3:
+                        st.markdown(f"**Phone**  \n{parsed.get('phone') or '—'}")
+                    
+                    st.markdown(f"**📍 Location:** {parsed.get('location') or 'Not specified'}")
                     st.markdown("<br>", unsafe_allow_html=True)
 
-                # ── Core Skills ──
-                skills = parsed.get("skills", [])
-                if skills:
-                    st.markdown(f"#### 🛠 Skills & Expertise ({len(skills)})")
-                    tags_html = "".join(
-                        f'<span class="tag tag-match">{s}</span>' for s in skills
-                    )
-                    st.markdown(
-                        f'<div style="margin-bottom: 1.5rem;">{tags_html}</div>', 
-                        unsafe_allow_html=True
-                    )
+                    # ── Summary / Objective ──
+                    summary = parsed.get("summary")
+                    if summary:
+                        with st.container(border=True):
+                            st.markdown("**📝 Professional Summary**")
+                            st.write(summary)
+                        st.markdown("<br>", unsafe_allow_html=True)
 
-                # ── Professional Experience & Background ──
-                st.markdown("#### 💼 Background Detail")
-                sec_tabs = st.tabs(["🚀 Projects", "💼 Experience", "🎓 Education", "📋 Raw JSON"])
+                    # ── Core Skills ──
+                    skills = parsed.get("skills", [])
+                    if skills:
+                        st.markdown(f"#### 🛠 Skills & Expertise ({len(skills)})")
+                        tags_html = "".join(
+                            f'<span class="tag tag-match">{s}</span>' for s in skills
+                        )
+                        st.markdown(
+                            f'<div style="margin-bottom: 1.5rem;">{tags_html}</div>', 
+                            unsafe_allow_html=True
+                        )
+
+                    # ── Professional Experience & Background ──
+                    st.markdown("#### 💼 Background Detail")
+                    sec_tabs = st.tabs(["🚀 Projects", "💼 Experience", "🎓 Education", "📋 Raw JSON"])
+                    
+                    with sec_tabs[0]:
+                        content = parsed.get("projects")
+                        if content:
+                            st.markdown(content)
+                        else:
+                            st.info("No projects section detected.")
+
+                    with sec_tabs[1]:
+                        content = parsed.get("experience")
+                        if content:
+                            st.markdown(content)
+                        else:
+                            st.info("No work experience section detected.")
+
+                    with sec_tabs[2]:
+                        content = parsed.get("education")
+                        if content:
+                            st.markdown(content)
+                        else:
+                            st.info("No education section detected.")
+
+                    with sec_tabs[3]:
+                        st.json(parsed)
+
+            # --- Embedding Stats ---
+            emb_result = st.session_state.get("embedding_result")
+            if emb_result and emb_result.get("status") == "success":
+                with st.expander("🔢 Vector Embedding Status", expanded=False):
+                    v1, v2, v3 = st.columns(3)
+                    v1.metric("📦 Text Chunks",  emb_result["total_chunks"])
+                    v2.metric("🧮 Vectors Stored", emb_result["total_vectors"])
+                    v3.metric("📐 Dimension",     emb_result["dimension"])
+                    st.success(emb_result["message"])
+                    if emb_result.get("storage"):
+                        st.caption(f"💾 Index: `{emb_result['storage']['index_path'].name}`")
+
+            # Job Description Section
+            with st.expander("📝 Job Description Parameters", expanded=True):
+                user_role = st.session_state.get("user_role")
                 
-                with sec_tabs[0]:
-                    content = parsed.get("projects")
-                    if content:
-                        st.markdown(content)
-                    else:
-                        st.info("No projects section detected.")
-
-                with sec_tabs[1]:
-                    content = parsed.get("experience")
-                    if content:
-                        st.markdown(content)
-                    else:
-                        st.info("No work experience section detected.")
-
-                with sec_tabs[2]:
-                    content = parsed.get("education")
-                    if content:
-                        st.markdown(content)
-                    else:
-                        st.info("No education section detected.")
-
-                with sec_tabs[3]:
-                    st.json(parsed)
-
-        # --- Embedding Stats ---
-        emb_result = st.session_state.get("embedding_result")
-        if emb_result and emb_result.get("status") == "success":
-            with st.expander("🔢 Vector Embedding Status", expanded=False):
-                v1, v2, v3 = st.columns(3)
-                v1.metric("📦 Text Chunks",  emb_result["total_chunks"])
-                v2.metric("🧮 Vectors Stored", emb_result["total_vectors"])
-                v3.metric("📐 Dimension",     emb_result["dimension"])
-                st.success(emb_result["message"])
-                if emb_result.get("storage"):
-                    st.caption(f"💾 Index: `{emb_result['storage']['index_path'].name}`")
-
-        # Job Description Section
-        with st.expander("📝 Job Description Parameters", expanded=True):
-            user_role = st.session_state.get("user_role")
-            
-            if user_role == "candidate":
-                st.info("📌 You are applying for the following role. The Job Description is pre-loaded and read-only.")
-                st.text_area(
-                    "JD Content",
-                    value=st.session_state.get("jd_text", ""),
-                    height=250,
-                    disabled=True,
-                    key="jd_text_display"
-                )
-            else:
-                input_mode = st.radio("Input Method", ["Paste Text", "Upload Document"], horizontal=True)
-
-                if input_mode == "Paste Text":
+                if user_role == "candidate":
+                    st.info("📌 You are applying for the following role. The Job Description is pre-loaded and read-only.")
                     st.text_area(
                         "JD Content",
-                        placeholder="Enter the role requirements and context here...",
+                        value=st.session_state.get("jd_text", ""),
                         height=250,
-                        key="jd_text",
+                        disabled=True,
+                        key="jd_text_display"
                     )
                 else:
-                    jd_file = st.file_uploader("Load JD Source", type=["pdf", "docx"], key="jd_file_upload")
-                    if jd_file:
-                        # REQUIREMENT: Enforce 5MB limit
-                        if jd_file.size > 5 * 1024 * 1024:
-                            st.error("File size exceeds the allowed limit (5MB). Please upload a smaller Job Description.")
-                        else:
-                            # Quick extract for JD files (reuse ingestion helpers)
-                            from modules.data_ingestion import extract_text, clean_text
-                            from pathlib import Path
-                            import tempfile, os
-                            tmp_path = Path("data") / "jd_temp" / jd_file.name
-                            tmp_path.parent.mkdir(parents=True, exist_ok=True)
-                            tmp_path.write_bytes(jd_file.getbuffer())
-                            raw = extract_text(tmp_path)
-                            jd_text_extracted = clean_text(raw)
-                            st.session_state["jd_text"] = jd_text_extracted
-                            st.success(f"✅ JD loaded: {jd_file.name}")
-                            with st.expander("📄 JD Preview"):
-                                st.text(jd_text_extracted[:800])
+                    input_mode = st.radio("Input Method", ["Paste Text", "Upload Document"], horizontal=True)
+
+                    if input_mode == "Paste Text":
+                        st.text_area(
+                            "JD Content",
+                            placeholder="Enter the role requirements and context here...",
+                            height=250,
+                            key="jd_text",
+                        )
+                    else:
+                        jd_file = st.file_uploader("Load JD Source", type=["pdf", "docx"], key="jd_file_upload")
+                        if jd_file:
+                            # REQUIREMENT: Enforce 10MB limit
+                            if jd_file.size > 10 * 1024 * 1024:
+                                st.error("File size exceeds the allowed limit (10MB). Please upload a smaller Job Description.")
+                            else:
+                                # Quick extract for JD files (reuse ingestion helpers)
+                                from modules.data_ingestion import extract_text, clean_text
+                                from pathlib import Path
+                                import tempfile, os
+                                tmp_path = Path("data") / "jd_temp" / jd_file.name
+                                tmp_path.parent.mkdir(parents=True, exist_ok=True)
+                                tmp_path.write_bytes(jd_file.getbuffer())
+                                raw = extract_text(tmp_path)
+                                jd_text_extracted = clean_text(raw)
+                                st.session_state["jd_text"] = jd_text_extracted
+                                st.success(f"✅ JD loaded: {jd_file.name}")
+                                with st.expander("📄 JD Preview"):
+                                    st.text(jd_text_extracted[:800])
+    
+
 
 # ── ELIGIBILITY & INTERVIEW LOGIC ──────────────────────────────────────────────
 def check_interview_eligibility():
@@ -684,15 +757,6 @@ def proceed_to_interview():
 def render_verification_page():
     """
     Stage 2 Gateway — Candidate Identity Verification.
-
-    Collects:
-      • Full name, email, phone  (validated text inputs)
-      • Live webcam photo        (via st.camera_input / getUserMedia — no uploads)
-
-    On success:
-      • Stores record in local SQLite via candidate_db.store_candidate_data()
-      • Sets session_state["verification_complete"] = True
-      • Routes the user to the Interview stage
     """
     # ── Stage guard ───────────────────────────────────────────────────────────
     if not st.session_state.get("stage_1_complete", False):
@@ -708,7 +772,7 @@ def render_verification_page():
     # ── Already verified? Skip straight to confirmation ───────────────────────
     if st.session_state.get("verification_complete"):
         st.markdown("""
-            <div class="header-container">
+            <div class="header-container verif-marker-header">
                 <div class="main-title">🔐 Candidate Verification</div>
                 <div class="subtitle">Stage 2 — Identity Confirmed</div>
             </div>
@@ -720,8 +784,8 @@ def render_verification_page():
 
     # ── Page header ───────────────────────────────────────────────────────────
     st.markdown("""
-        <div class="header-container">
-            <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;
+        <div class="header-container verif-marker-header">
+            <div style="font-size:0.82rem;color:#475569;text-transform:uppercase;
                         letter-spacing:0.12em;margin-bottom:0.6rem;">Stage 2 Pre-Check</div>
             <div class="main-title">🔐 Candidate Verification</div>
             <div class="subtitle">
@@ -1616,6 +1680,10 @@ def analyze_candidate(parsed: dict, jd_text: str):
     Option 1 — Fast local analysis.
     Runs similarity matching only. No external API calls.
     """
+    if not isinstance(parsed, dict):
+        st.error("❌ Invalid resume data format. Please re-upload the resume.")
+        return
+
     if not _ensure_vector_store(parsed):
         return
 
@@ -1624,18 +1692,16 @@ def analyze_candidate(parsed: dict, jd_text: str):
     candidate_skills = list(parsed.get("skills", []))
     
     # Add skills found in experience descriptions
-    for exp in parsed.get("experience", []):
-        desc = exp.get("description", "")
-        if desc:
-            from modules.text_processing import extract_skills
-            candidate_skills.extend(extract_skills(desc))
+    exp_text = parsed.get("experience", "")
+    if exp_text and isinstance(exp_text, str):
+        from modules.text_processing import extract_skills
+        candidate_skills.extend(extract_skills(exp_text))
             
     # Add skills found in project descriptions
-    for proj in parsed.get("projects", []):
-        desc = proj.get("description", "")
-        if desc:
-            from modules.text_processing import extract_skills
-            candidate_skills.extend(extract_skills(desc))
+    proj_text = parsed.get("projects", "")
+    if proj_text and isinstance(proj_text, str):
+        from modules.text_processing import extract_skills
+        candidate_skills.extend(extract_skills(proj_text))
             
     # De-duplicate
     candidate_skills = sorted(list(set(candidate_skills)))
@@ -1679,6 +1745,10 @@ def analyze_with_recommendation(parsed: dict, jd_text: str):
     Option 2 — Full AI analysis with recommendations.
     Runs similarity matching THEN calls Gemini/OpenAI for deep insights.
     """
+    if not isinstance(parsed, dict):
+        st.error("❌ Invalid resume data format. Please re-upload the resume.")
+        return
+
     if not _ensure_vector_store(parsed):
         return
 

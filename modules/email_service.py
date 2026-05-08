@@ -91,25 +91,40 @@ def send_hiring_email(to_email: str, candidate_name: str, job_role: str) -> dict
     }
 
     html_content = f"""
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-        <h2 style="color: #0f172a; text-align: center;">🎉 Congratulations!</h2>
-        <p style="font-size: 1.1rem; color: #334155;">Dear <strong>{candidate_name}</strong>,</p>
-        <p style="font-size: 1rem; color: #475569; line-height: 1.6;">
-            Congratulations!
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 40px; border: 1px solid #e2e8f0; border-radius: 24px; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <div style="font-size: 48px;">🎉</div>
+            <h2 style="color: #0f172a; margin-top: 10px; font-size: 28px; font-weight: 800;">Congratulations!</h2>
+        </div>
+        
+        <p style="font-size: 1.1rem; color: #1e293b;">Dear <strong>{candidate_name}</strong>,</p>
+        
+        <p style="font-size: 1rem; color: #475569; line-height: 1.7;">
+            We are absolutely thrilled to inform you that you have been selected for the position of 
+            <strong style="color: #4f46e5;">{job_role}</strong> at <strong>HireMind AI</strong>.
         </p>
-        <p style="font-size: 1rem; color: #475569; line-height: 1.6;">
-            We are pleased to inform you that you have been successfully selected for the position of 
-            <strong style="color: #2563eb;">{job_role}</strong> at our organization.
+        
+        <p style="font-size: 1rem; color: #475569; line-height: 1.7;">
+            Your performance throughout the selection process was exceptional. Out of many highly qualified candidates, 
+            your skills, experience, and cultural fit stood out as a perfect match for our team.
         </p>
-        <p style="font-size: 1rem; color: #475569; line-height: 1.6;">
-            Your performance throughout the selection process was outstanding, and we are excited to have you on board.
+        
+        <div style="background: #f8fafc; padding: 20px; border-radius: 16px; margin: 30px 0; border: 1px solid #f1f5f9;">
+            <h4 style="margin: 0 0 10px 0; color: #1e293b; font-size: 1.1rem;">What's Next?</h4>
+            <p style="margin: 0; color: #64748b; font-size: 0.95rem;">
+                Our HR representative will contact you shortly with your official offer letter and further details 
+                regarding the onboarding process.
+            </p>
+        </div>
+        
+        <p style="font-size: 1rem; color: #475569; line-height: 1.7;">
+            Welcome to the future of hiring. We can't wait to see the incredible impact you'll make here!
         </p>
-        <p style="font-size: 1rem; color: #475569; line-height: 1.6;">
-            Our team will contact you shortly with further details regarding onboarding and next steps.
-        </p>
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #f1f5f9; text-align: center;">
-            <p style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 5px;">Welcome to the team! 🚀</p>
-            <p style="font-size: 0.9rem; color: #64748b;">Best Regards,<br><strong>Hiring Team</strong></p>
+        
+        <div style="margin-top: 40px; padding-top: 25px; border-top: 1px solid #f1f5f9; text-align: center;">
+            <p style="font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 5px;">Best Regards,</p>
+            <p style="font-size: 1rem; color: #6366f1; font-weight: 600; margin: 0;">The Hiring Team</p>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 5px;">HireMind AI OS</p>
         </div>
     </div>
     """

@@ -972,45 +972,62 @@ def render_admin_dashboard():
             ranked_applicants = sorted(processed_applicants, key=lambda x: x["total_score"], reverse=True)
 
             # Table Header
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1.5])
+            col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1.2, 1.8])
             with col1: st.caption("CANDIDATE")
             with col2: st.caption("STAGE 1 (ATS)")
             with col3: st.caption("STAGE 2 (INT)")
-            with col4: st.caption("FINAL / RANK")
+            with col4: st.caption("FINAL SCORE")
+            with col5: st.caption("ACTIONS")
 
             for i, app in enumerate(ranked_applicants):
                 with st.container():
-                    c1, c2, c3, c4 = st.columns([2, 1, 1, 1.5])
+                    c1, c2, c3, c4, c5 = st.columns([2, 1, 1, 1.2, 1.8])
+                    
                     with c1:
                         st.markdown(f"**{app['full_name']}**")
-                        if app.get("hiring_status") == "hired":
-                            st.markdown('<span class="hired-badge">SELECTED</span>', unsafe_allow_html=True)
+                        h_status = app.get("hiring_status", "pending")
+                        if h_status == "hired":
+                            st.markdown('<span class="hired-badge" style="background:#f0fdf4; color:#166534; border:1px solid #86efac; padding:2px 8px; border-radius:6px; font-weight:700; font-size:0.75rem;">✅ HIRED</span>', unsafe_allow_html=True)
+                        elif h_status == "rejected":
+                            st.markdown('<span style="background:#fef2f2; color:#991b1b; border:1px solid #fecaca; padding:2px 8px; border-radius:6px; font-weight:700; font-size:0.75rem;">❌ REJECTED</span>', unsafe_allow_html=True)
                         else:
                             st.caption(app['email'])
+                            
                     with c2:
                         st.write(f"{app['ats_score']:.1f}%")
                     with c3:
                         st.write(f"{app['final_score']:.1f}%")
                     with c4:
-                        st.markdown(f'<span class="score-badge">{app["total_score"]:.1f} / 200</span>', unsafe_allow_html=True)
+                        st.markdown(f'<span class="score-badge">{app["total_score"]:.1f}</span>', unsafe_allow_html=True)
                         st.caption(f"Rank #{i+1}")
                     
-                    # Actions Row
-                    a1, a2, _ = st.columns([1, 1, 3])
-                    with a1:
-                        if st.button("View Details", key=f"det_{app['id']}"):
-                            show_candidate_details(app, selected_job['title'])
-                    with a2:
-                        if app.get("hiring_status") != "hired":
-                            if st.button("🚀 HIRE", key=f"hire_{app['id']}", type="primary"):
-                                update_hiring_status(app['id'], "hired")
-                                result = send_hiring_email(app['email'], app['full_name'], selected_job['title'])
-                                if result["success"]:
-                                    st.success(f"Hiring email sent to {app['full_name']}!")
-                                else:
-                                    st.warning(f"Status updated, but email failed: {result['message']}")
-                                st.rerun()
-                    st.markdown("---")
+                    with c5:
+                        # Actions Row
+                        a1, a2 = st.columns(2)
+                        with a1:
+                            if st.button("📄 View Report", key=f"det_{app['id']}", use_container_width=True):
+                                show_candidate_details(app, selected_job['title'])
+                        
+                        with a2:
+                            if h_status == "pending":
+                                if st.button("🚀 Hire", key=f"hire_{app['id']}", type="primary", use_container_width=True):
+                                    update_hiring_status(app['id'], "hired")
+                                    result = send_hiring_email(app['email'], app['full_name'], selected_job['title'])
+                                    if result["success"]:
+                                        st.success(f"Hired {app['full_name']}!")
+                                    else:
+                                        st.warning(f"Status updated, but email failed: {result['message']}")
+                                    st.rerun()
+                                    
+                                if st.button("❌ Reject", key=f"rej_{app['id']}", use_container_width=True):
+                                    update_hiring_status(app['id'], "rejected")
+                                    st.rerun()
+                            elif h_status == "hired":
+                                st.info("Hiring Confirmed")
+                            elif h_status == "rejected":
+                                st.error("Rejected")
+
+                    st.markdown("<div style='margin: 0.5rem 0; border-bottom: 1px solid #f1f5f9;'></div>", unsafe_allow_html=True)
 
     else:
         # DEFAULT OVERVIEW
@@ -1021,45 +1038,94 @@ def render_admin_dashboard():
         with counts_col1:
             st.metric("Total Jobs", len(jobs))
         with counts_col2:
+            from modules.candidate_db import get_all_candidates
             all_cands = get_all_candidates()
             st.metric("Identity Verified Candidates", len(all_cands))
 
-@st.dialog("Candidate Detailed Report")
+@st.dialog("Candidate Detailed Report", width="large")
 def show_candidate_details(app, job_title):
-    st.markdown(f"### Report: {app['full_name']}")
-    st.caption(f"Role: {job_title} | ID: #{app['id']}")
+    st.markdown(f"### 📋 Detailed Assessment: {app['full_name']}")
+    st.caption(f"Role: {job_title} | Session ID: #{app['id']}")
     st.markdown("---")
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("**Contact Information**")
-        st.write(f"📧 {app['email']}")
-        st.write(f"📞 {app['phone']}")
+        st.markdown("#### 👤 Contact Information")
+        st.write(f"📧 **Email:** {app['email']}")
+        st.write(f"📞 **Phone:** {app['phone']}")
     with col2:
-        st.markdown("**Assessment Timeline**")
-        st.write(f"🗓 Completed: {app.get('timestamp', 'N/A')[:10]}")
-        st.write(f"📍 Status: {app.get('hiring_status', 'Pending').title()}")
+        st.markdown("#### 🗓 Assessment Timeline")
+        st.write(f"✅ **Completed:** {app.get('timestamp', 'N/A')}")
+        status = app.get('hiring_status', 'Pending').title()
+        color = "#10b981" if status == "Hired" else "#ef4444" if status == "Rejected" else "#64748b"
+        st.markdown(f"📍 **Status:** <span style='color:{color}; font-weight:700;'>{status}</span>", unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("#### 📊 Performance Breakdown")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 📊 Performance Matrix")
     
     m1, m2, m3 = st.columns(3)
-    m1.metric("ATS Score", f"{app['ats_score']:.1f}%")
-    m2.metric("Interview Score", f"{app['final_score']:.1f}%")
-    m3.metric("Final Weighted", f"{app['total_score']:.1f}", delta=f"Rank #{app.get('rank', 'N/A')}")
+    with m1:
+        st.metric("Stage 1 (ATS)", f"{app['ats_score']:.1f}%")
+    with m2:
+        st.metric("Stage 2 (Interview)", f"{app['final_score']:.1f}%")
+    with m3:
+        st.metric("Final Weighted Score", f"{app['total_score']:.1f}")
 
-    # Add interview feedback if retrieval is needed
+    st.markdown("---")
+    
+    # ── AI ANALYSIS REPORT ──────────────────────────────────────────────────
+    st.markdown("#### 🧠 Final AI Evaluation Report")
+    ai_report_raw = app.get("ai_report", "")
+    if ai_report_raw:
+        try:
+            import json
+            ai = json.loads(ai_report_raw)
+            if isinstance(ai, dict) and ai.get("overall_summary"):
+                st.markdown(f"""
+                    <div style="background:#f8fafc; padding:20px; border-radius:16px; border:1px solid #e2e8f0; margin-bottom:20px;">
+                        <p style="color:#475569; font-size:0.9rem; font-weight:700; text-transform:uppercase; margin-bottom:8px;">Executive Summary</p>
+                        <p style="color:#1e293b; font-size:1.05rem; line-height:1.6; margin:0;">{ai.get('overall_summary')}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                sum_col1, sum_col2 = st.columns(2)
+                with sum_col1:
+                    st.markdown("**✅ Key Strengths**")
+                    for s in ai.get("key_strengths", []):
+                        st.markdown(f"- {s}")
+                with sum_col2:
+                    st.markdown("**⚠️ Key Weaknesses**")
+                    for w in ai.get("key_weaknesses", []):
+                        st.markdown(f"- {w}")
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("**💡 Hiring Recommendation**")
+                st.success(ai.get("hiring_recommendation", "N/A"))
+                
+                if ai.get("skill_gaps"):
+                    st.markdown("**🛠 Skill Gaps & Development**")
+                    st.warning(", ".join(ai.get("skill_gaps")))
+            else:
+                st.markdown(f"<div style='background:#f8fafc; padding:15px; border-radius:10px;'>{ai_report_raw}</div>", unsafe_allow_html=True)
+        except:
+            st.markdown(f"<div style='background:#f8fafc; padding:15px; border-radius:10px;'>{ai_report_raw}</div>", unsafe_allow_html=True)
+    else:
+        st.info("Detailed AI Analysis report is being processed or was not generated.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # ── RAW INTERVIEW ANSWERS ──────────────────────────────────────────────
     from modules.candidate_db import get_interview_results
     results = get_interview_results(app['id'])
     
-    with st.expander("📝 View Raw Interview Answers", expanded=False):
+    with st.expander("📝 View Detailed Interview Transcript", expanded=False):
         for ans in results.get("answers", []):
             st.markdown(f"**Q: {ans['question_text']}**")
-            st.info(f"Answer: {ans['answer_text']}")
-            st.caption(f"Score: {ans['score']} | Eval: {ans['evaluation']}")
+            st.markdown(f"<div style='background:#f1f5f9; padding:10px; border-radius:8px; margin-bottom:5px;'><em>{ans['answer_text']}</em></div>", unsafe_allow_html=True)
+            st.caption(f"Score: {ans['score']}/10 | Evaluation: {ans['evaluation']}")
             st.markdown("---")
 
-    if st.button("Close Report"):
+    if st.button("Close Report", use_container_width=True):
         st.rerun()
 
 def logout():

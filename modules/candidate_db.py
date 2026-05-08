@@ -44,7 +44,8 @@ def init_db() -> None:
             mode         TEXT, -- 'normal' or 'ai'
             ats_score    REAL DEFAULT 0, -- Stage 1 Score
             final_score  REAL DEFAULT 0, -- Stage 2 Avg Score
-            hiring_status TEXT DEFAULT 'pending', -- 'pending', 'hired'
+            ai_report    TEXT DEFAULT '', -- Final AI analysis report
+            hiring_status TEXT DEFAULT 'pending', -- 'pending', 'hired', 'rejected'
             status       TEXT DEFAULT 'in_progress',
             timestamp    TEXT,
             FOREIGN KEY(candidate_id) REFERENCES candidates(id)
@@ -69,6 +70,14 @@ def init_db() -> None:
         )
     """)
     conn.commit()
+
+    # --- Migration: Add ai_report if missing ---
+    try:
+        cursor.execute("ALTER TABLE interview_sessions ADD COLUMN ai_report TEXT DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass # Already exists
+
     conn.close()
 
 
@@ -216,14 +225,14 @@ def add_interview_answer(
     conn.close()
 
 
-def finalize_interview(session_id: int, final_score: float, ats_score: float = 0.0):
-    """Mark an interview session as completed and store scores."""
+def finalize_interview(session_id: int, final_score: float, ats_score: float = 0.0, ai_report: str = ""):
+    """Mark an interview session as completed and store scores/reports."""
     init_db()
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE interview_sessions SET final_score = ?, ats_score = ?, status = 'completed' WHERE id = ?",
-        (final_score, ats_score, session_id)
+        "UPDATE interview_sessions SET final_score = ?, ats_score = ?, status = 'completed', ai_report = ? WHERE id = ?",
+        (final_score, ats_score, ai_report, session_id)
     )
     conn.commit()
     conn.close()
